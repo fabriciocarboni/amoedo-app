@@ -1,0 +1,38 @@
+services:
+  amoedo-db:
+    image: mariadb:latest
+    container_name: amoedo-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # MYSQL_DATABASE: mydb
+      # MYSQL_USER: user
+      MYSQL_PASSWORD: userpassword
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - amoedo-network
+
+  phpmyadmin-amoedo:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: phpmyadmin-amoedo
+    environment:
+      PMA_HOST: amoedo-db
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "8070:80"
+    depends_on:
+      - amoedo-db
+    networks:
+      - amoedo-network
+
+volumes:
+  mariadb_data:
+    name: amoedo-mariadb-data
+
+networks:
+  amoedo-network:
+    name: amoedo-network
+    driver: bridge
