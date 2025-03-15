@@ -51,6 +51,7 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
+  gem "erb-formatter", "~> 0.7.3", require: false
 end
 
 group :development do
@@ -66,6 +67,5 @@ end
 
 
 gem "dotenv-rails"
-gem "erb-formatter", "~> 0.7.3", require: false
 gem "mailgun-ruby", "~> 1.3"
 gem "httparty", "~> 0.22.0"
