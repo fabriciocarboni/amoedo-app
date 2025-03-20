@@ -7,9 +7,9 @@ class RemessaUploadsController < ApplicationController
   def create
     result = case params[:bank]
     when "santander"
-      result = Santander::RemessaUploadService.call(params[:remessa_file_santander])
+                result = Santander::RemessaUploadService.call(params[:remessa_file_santander])
     when "bradesco"
-                # result = Bradesco::RemessaUploadService.call(params[:remessa_file_bradesco])
+               # result = Bradesco::RemessaUploadService.call(params[:remessa_file_bradesco])
                { success: false, error: "Bradesco upload not implemented yet" }
     else
                { success: false, error: "Invalid bank selected" }
