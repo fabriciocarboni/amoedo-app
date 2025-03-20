@@ -66,6 +66,7 @@ group :test do
 end
 
 
+gem "activerecord-import"
 gem "dotenv-rails"
 gem "mailgun-ruby", "~> 1.3"
 gem "httparty", "~> 0.22.0"

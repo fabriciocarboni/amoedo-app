@@ -12,4 +12,13 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   root "pages#home"
+  # resources :remessa_uploads, only: [ :new, :create ]
+
+  namespace :santander do
+    resources :remessa_uploads, only: [ :new, :create ]
+  end
+
+  namespace :bradesco do
+    resources :remessa_uploads, only: [ :new, :create ]
+  end
 end

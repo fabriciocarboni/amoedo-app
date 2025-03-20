@@ -1,0 +1,221 @@
+# config/remessa_schema.yml
+header:
+  codigo_do_registro:
+    start: 1
+    length: 1
+  codigo_da_remessa:
+    start: 2
+    length: 1
+  literal_de_transmissao:
+    start: 3
+    length: 7
+  codigo_do_tipo_servico:
+    start: 10
+    length: 2
+  literal_de_servico:
+    start: 12
+    length: 15
+  codigo_de_transmissao:
+    start: 27
+    length: 20
+  nome_do_beneficiario:
+    start: 47
+    length: 30
+  codigo_do_banco:
+    start: 77
+    length: 3
+  nome_do_banco:
+    start: 80
+    length: 15
+  data_da_geracao_do_arquivo:
+    start: 95
+    length: 6
+  reservado_uso_banco_1:
+    start: 101
+    length: 6
+  mensagem_1:
+    start: 117
+    length: 47
+  mensagem_2:
+    start: 164
+    length: 47
+  mensagem_3:
+    start: 211
+    length: 47
+  mensagem_4:
+    start: 258
+    length: 47
+  mensagem_5:
+    start: 305
+    length: 47
+  reservado_uso_banco_2:
+    start: 352
+    length: 34
+  reservado_uso_banco_3:
+    start: 386
+    length: 6
+  numero_sequencial_do_arquivo:
+    start: 392
+    length: 3
+  numero_sequencial_do_registro_no_arquivo:
+    start: 395
+    length: 6
+
+registro_movimento:
+  codigo_do_registro:
+    start: 1
+    length: 1
+  tipo_de_inscricao_do_beneficiario:
+    start: 2
+    length: 2
+  numero_de_inscricao_do_beneficiario:
+    start: 4
+    length: 14
+  codigo_da_agencia_beneficiario:
+    start: 18
+    length: 4
+  conta_movimento_beneficiario:
+    start: 22
+    length: 8
+  conta_cobranca_beneficiario:
+    start: 30
+    length: 8
+  identificacao_do_boleto_na_empresa:
+    start: 38
+    length: 25
+  identificacao_do_boleto_no_banco:
+    start: 63
+    length: 8
+  data_do_desconto_2:
+    start: 71
+    length: 6
+  reservado_uso_banco_1:
+    start: 77
+    length: 1
+  codigo_de_multa:
+    start: 78
+    length: 1
+  percentual_de_multa:
+    start: 79
+    length: 2
+    decimal: 2
+  codigo_da_moeda:
+    start: 83
+    length: 2
+  valor_do_boleto_em_outra_unidade:
+    start: 85
+    length: 8
+    decimal: 2
+  reservado_uso_banco_2:
+    start: 98
+    length: 4
+  data_da_multa:
+    start: 102
+    length: 6
+  tipo_de_cobranca:
+    start: 108
+    length: 1
+  codigo_de_movimento_remessa:
+    start: 109
+    length: 2
+  numero_do_documento:
+    start: 111
+    length: 10
+  data_de_vencimento_do_boleto:
+    start: 121
+    length: 6
+  valor_nominal_do_boleto:
+    start: 127
+    length: 13
+    decimal: 2
+  numero_do_banco_cobrador:
+    start: 140
+    length: 3
+  codigo_agencia_cobradora:
+    start: 143
+    length: 5
+  especie_do_boleto:
+    start: 148
+    length: 2
+  identificacao_boleto_aceite_nao_aceite:
+    start: 150
+    length: 1
+  data_de_emissao_do_boleto:
+    start: 151
+    length: 6
+  primeira_instrucao:
+    start: 157
+    length: 2
+  segunda_instrucao:
+    start: 159
+    length: 2
+  valor_de_mora_dia:
+    start: 161
+    length: 11
+    decimal: 2
+  data_limite_para_concessao_do_desconto:
+    start: 174
+    length: 6
+  valor_do_desconto_a_ser_concedido:
+    start: 180
+    length: 11
+    decimal: 2
+  percentual_do_iof_a_ser_recolhido:
+    start: 193
+    length: 8
+    decimal: 5
+  valor_do_abatimento_ou_valor_do_segundo_desconto:
+    start: 206
+    length: 11
+    decimal: 2
+  tipo_de_inscricao_do_pagador:
+    start: 219
+    length: 2
+  numero_de_inscricao_do_pagador:
+    start: 221
+    length: 14
+  nome_do_pagador:
+    start: 235
+    length: 40
+  endereco_do_pagador:
+    start: 275
+    length: 40
+  bairro_do_pagador:
+    start: 315
+    length: 12
+  cep_do_pagador:
+    start: 327
+    length: 5
+  sufixo_do_cep_do_pagador:
+    start: 332
+    length: 3
+  cidade_do_pagador:
+    start: 335
+    length: 15
+  unidade_de_federacao_do_pagador:
+    start: 350
+    length: 2
+  reservado_uso_banco_3:
+    start: 352
+    length: 30
+  reservado_uso_banco_4:
+    start: 382
+    length: 1
+  identificador_do_complemento:
+    start: 383
+    length: 2
+  complemento:
+    start: 384
+    length: 2
+  reservado_uso_banco_5:
+    start: 386
+    length: 6
+  numero_de_dias_corridos_para_protesto:
+    start: 392
+    length: 2
+  reservado_uso_banco_6:
+    start: 394
+    length: 1
+  numero_sequencial_do_registro_no_arquivo:
+    start: 395
+    length: 6
