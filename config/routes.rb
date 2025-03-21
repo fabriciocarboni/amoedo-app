@@ -1,4 +1,8 @@
 Rails.application.routes.draw do
+  resource :session
+  resources :passwords, param: :token
+  get "logout", to: "sessions#destroy", as: :destroy_session
+  delete "logout", to: "sessions#destroy"
   # get "pages/home" # added by `rails g controler pages home`
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 

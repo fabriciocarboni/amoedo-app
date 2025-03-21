@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_03_18_121609) do
+ActiveRecord::Schema[8.0].define(version: 2025_03_21_152235) do
   create_table "remessa_santander_headers", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
     t.string "codigo_do_registro", limit: 1
     t.string "codigo_da_remessa", limit: 1
@@ -93,5 +93,23 @@ ActiveRecord::Schema[8.0].define(version: 2025_03_18_121609) do
     t.index ["remessa_santander_header_id"], name: "idx_on_remessa_santander_header_id_4776cc7613"
   end
 
+  create_table "sessions", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "ip_address"
+    t.string "user_agent"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_sessions_on_user_id"
+  end
+
+  create_table "users", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+    t.string "email_address", null: false
+    t.string "password_digest", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["email_address"], name: "index_users_on_email_address", unique: true
+  end
+
   add_foreign_key "remessa_santander_registros", "remessa_santander_headers"
+  add_foreign_key "sessions", "users"
 end
