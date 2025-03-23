@@ -10,7 +10,44 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_03_21_152235) do
+ActiveRecord::Schema[8.0].define(version: 2025_03_23_185323) do
+  create_table "customers", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+    t.string "asaas_customer_id", null: false
+    t.date "date_created"
+    t.string "name", null: false
+    t.string "email"
+    t.string "company"
+    t.string "phone"
+    t.string "mobile_phone"
+    t.string "address"
+    t.string "address_number"
+    t.string "complement"
+    t.string "province"
+    t.string "postal_code"
+    t.string "cpf_cnpj", null: false
+    t.string "person_type"
+    t.boolean "deleted", default: false
+    t.text "additional_emails"
+    t.string "external_reference"
+    t.boolean "notification_disabled", default: false
+    t.text "observations"
+    t.string "municipal_inscription"
+    t.string "state_inscription"
+    t.boolean "can_delete", default: true
+    t.text "cannot_be_deleted_reason"
+    t.boolean "can_edit", default: true
+    t.text "cannot_edit_reason"
+    t.integer "city_id"
+    t.string "city_name"
+    t.string "state"
+    t.string "country"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["asaas_customer_id"], name: "index_customers_on_asaas_customer_id", unique: true
+    t.index ["cpf_cnpj"], name: "index_customers_on_cpf_cnpj", unique: true
+    t.index ["external_reference"], name: "index_customers_on_external_reference"
+  end
+
   create_table "remessa_santander_headers", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
     t.string "codigo_do_registro", limit: 1
     t.string "codigo_da_remessa", limit: 1

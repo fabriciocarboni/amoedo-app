@@ -55,7 +55,7 @@ production:
     # username: amoedo_app
     # password: <%= ENV["AMOEDO_APP_DATABASE_PASSWORD"] %>
     # host: amoedo-db
-    host: zapreservas_api_mariadb #(change me if this project goes to production)
+    host: stack-db_mariadb #(change me if this project goes to production)
   cache:
     <<: *primary_production
     database: amoedo_app_production_cache
