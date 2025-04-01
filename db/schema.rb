@@ -10,9 +10,9 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_03_23_185323) do
+ActiveRecord::Schema[8.0].define(version: 2025_04_01_160121) do
   create_table "customers", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
-    t.string "asaas_customer_id", null: false
+    t.string "asaas_customer_id"
     t.date "date_created"
     t.string "name", null: false
     t.string "email"
