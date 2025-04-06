@@ -10,6 +10,8 @@ module Santander
       @processamento_id = SecureRandom.random_number(1_000_000_000)
     end
 
+
+    # Process the file
     def process
       header_data = process_header
       registro_data = process_registros(header_data)
@@ -19,11 +21,15 @@ module Santander
         bulk_insert_registros(registro_data)
       end
 
+
+      # Create customer after processing the file
       # handle_customers(registro_data)
+      create_cobrancas(registro_data)
 
       { success: true }
     rescue StandardError => e
       Rails.logger.error "[#{File.basename(__FILE__)}] Error processing remessa file: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
       { success: false, error: "Failed to process remessa file: #{e.message}" }
     end
 
@@ -64,16 +70,32 @@ module Santander
       Rails.logger.info "[#{File.basename(__FILE__)}] Bulk inserted #{inserted_count} RemessaRegistro records"
     end
 
-    def handle_customers(registro_data)
-      unique_customers = registro_data.uniq { |data| data["numero_de_inscricao_do_pagador"] }
-      customer_data = unique_customers.map do |data|
-        {
-          cpf_cnpj: data["numero_de_inscricao_do_pagador"],
-          name: data["nome_do_pagador"]
-        }
-      end
+    # def handle_customers(registro_data)
+    #   unique_customers = registro_data.uniq { |data| data["numero_de_inscricao_do_pagador"] }
+    #   customer_data = unique_customers.map do |data|
+    #     {
+    #       cpf_cnpj: data["numero_de_inscricao_do_pagador"],
+    #       name: data["nome_do_pagador"]
+    #     }
+    #   end
 
-      CustomerHandlingService.handle_customers(customer_data)
+    #   CustomerHandlingService.handle_customers(customer_data)
+    # end
+
+    def create_cobrancas(cobrancas)
+      puts "Entering create_cobrancas method"
+      # puts "registro_data class: #{registro_data.class}"
+      # puts "registro_data first element class: #{registro_data.first.class}" if registro_data.is_a?(Array) && !registro_data.empty?
+
+      results = ::AsaasCobrancaHandlerService.handle_cobrancas(cobrancas)
+
+      # results.each do |result|
+      #   # For example, you might want to update your local database with the Asaas customer and cobrança IDs
+      #   # RemessaRegistro.find_by(numero_de_inscricao_do_pagador: result[:cpf_cnpj])
+      #   #               .update(asaas_customer_id: result[:customer_id], asaas_cobranca_id: result[:cobranca_id])
+      # end
+
+      { success: true, message: "Processed #{results.length} registros" }
     end
   end
 end

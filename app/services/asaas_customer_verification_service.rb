@@ -5,18 +5,19 @@ class AsaasCustomerVerificationService
   include HTTParty
   base_uri ENV["ASAAS_BASE_URI"]
 
-  def self.exists?(identifier)
+  def self.exists?(cpf_cnpj)
     response = get("/customers",
-      query: identifier.include?("@") ? { email: identifier } : { cpfCnpj: identifier },
-      headers: {
-        "accept" => "application/json",
-        "access_token" => ENV["ASAAS_TOKEN"]
-      }
+      query: { cpfCnpj: cpf_cnpj },
+      headers: { "accept" => "application/json", "access_token" => ENV["ASAAS_TOKEN"] }
     )
 
     if response.success?
       data = JSON.parse(response.body)
-      !data["data"].empty?
+      if !data["data"].empty?
+        data["data"].first  # Return the first customer found
+      else
+        false
+      end
     else
       Rails.logger.error "[#{File.basename(__FILE__)}] Asaas API error: #{response.code} - #{response.body}"
       false
