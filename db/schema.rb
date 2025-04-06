@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_04_01_160121) do
+ActiveRecord::Schema[8.0].define(version: 2025_04_05_191300) do
   create_table "customers", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
     t.string "asaas_customer_id"
     t.date "date_created"
@@ -71,6 +71,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_04_01_160121) do
     t.string "numero_sequencial_do_registro_no_arquivo", limit: 6
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "nome_arquivo_remessa", null: false
+    t.integer "processamento_id", null: false
+    t.index ["processamento_id"], name: "index_remessa_santander_headers_on_processamento_id"
   end
 
   create_table "remessa_santander_registros", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
@@ -127,6 +130,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_04_01_160121) do
     t.string "numero_sequencial_do_registro_no_arquivo", limit: 6
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "nome_arquivo_remessa", null: false
+    t.integer "processamento_id", null: false
+    t.index ["processamento_id"], name: "index_remessa_santander_registros_on_processamento_id"
     t.index ["remessa_santander_header_id"], name: "idx_on_remessa_santander_header_id_4776cc7613"
   end
 

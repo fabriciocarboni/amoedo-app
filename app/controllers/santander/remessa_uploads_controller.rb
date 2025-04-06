@@ -11,11 +11,14 @@ module Santander
         return
       end
 
-      file = params[:remessa_file_santander].tempfile
-      result = Santander::RemessaProcessorService.new(file.path).process
+      uploaded_file = params[:remessa_file_santander]
+      file_path = uploaded_file.tempfile.path
+      original_filename = uploaded_file.original_filename
+
+      result = Santander::RemessaProcessorService.new(file_path, original_filename).process
 
       if result[:success]
-        redirect_to new_santander_remessa_upload_path, notice: "Arquivo de remessa Santander processado com sucesso."
+        redirect_to new_santander_remessa_upload_path, notice: "Arquivo de remessa Santander processado com sucesso!"
       else
         redirect_to new_santander_remessa_upload_path, alert: "Erro ao processar arquivo: #{result[:error]}"
       end
