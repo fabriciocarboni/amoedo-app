@@ -1,13 +1,15 @@
 # app/services/asaas_customer_creation_service.rb
 require "httparty"
 
-class AsaasCustomerCreationService
+class AsaasCobrancaCreationService
   include HTTParty
   base_uri ENV["ASAAS_BASE_URI"]
 
-  def self.create(cpf_cnpj, name)
-    response = post("/customers",
-      body: { name: name, cpfCnpj: cpf_cnpj }.to_json,
+  def self.create(cobranca)
+    response = post("/payments",
+      body: { customer: asaas_customer_id
+              name: name,
+              cpfCnpj: cpf_cnpj }.to_json,
       headers: {
         "accept" => "application/json",
         "content-type" => "application/json",

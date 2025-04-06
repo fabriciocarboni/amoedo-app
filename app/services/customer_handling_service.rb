@@ -8,24 +8,46 @@ class CustomerHandlingService
     Rails.logger.error "[#{File.basename(__FILE__)}] Error in handling customers: #{e.message}"
   end
 
+
   private
 
+  def self.find_or_create_local_customers(customer_data)
+    cpf_cnpj = customer_data["numero_de_inscricao_do_beneficiario"]
+    name = customer_data["nome_do_pagador"]
 
-  def self.find_or_create_local_customers(customers_data)
-    customers_data.map do |data|
-      cpf_cnpj = data[:cpf_cnpj]
-      name = data[:name]
+    Rails.logger.info("[#{File.basename(__FILE__)}] Attempting to find or create customer: CPF/CNPJ: #{cpf_cnpj}, Name: #{name}")
 
-      customer = Customer.find_or_create_by!(cpf_cnpj: cpf_cnpj, name: name)
+    customer = Customer.find_by(cpf_cnpj: cpf_cnpj)
 
-      Rails.logger.info "[#{File.basename(__FILE__)}] Customer processed: #{customer.name}, CPF/CNPJ: #{customer.cpf_cnpj}"
+    if customer
+      Rails.logger.info("[#{File.basename(__FILE__)}] Existing customer found: ID: #{customer.id}, CPF/CNPJ: #{customer.cpf_cnpj}, Name: #{customer.name}")
       customer
-    end.compact
+    else
+      Rails.logger.info("[#{File.basename(__FILE__)}] Customer not found. Creating new customer.")
+      customer = Customer.create(cpf_cnpj: cpf_cnpj, name: name)
+      if customer.persisted?
+        Rails.logger.info("[#{File.basename(__FILE__)}] New customer created: ID: #{customer.id}, CPF/CNPJ: #{customer.cpf_cnpj}, Name: #{customer.name}")
+      else
+        Rails.logger.error("[#{File.basename(__FILE__)}] Failed to create customer: #{customer.errors.full_messages.join(', ')}")
+      end
+      customer
+    end
   end
 
 
-  def self.handle_asaas_customers(customers)
+  # customers_data.map do |data|
+  #   cpf_cnpj = data[:cpf_cnpj]
+  #   name = data[:name]
 
+  #   customer = Customer.find_or_create_by!(cpf_cnpj: cpf_cnpj, name: name)
+
+  #   Rails.logger.info "[#{File.basename(__FILE__)}] Customer processed: #{customer.name}, CPF/CNPJ: #{customer.cpf_cnpj}"
+  #   customer
+  # end.compact
+  # end
+
+
+  def self.handle_asaas_customers(customers)
     customers_without_asaas_id = customers.select { |c| c.asaas_customer_id.blank? }
     return if customers_without_asaas_id.empty?
 
