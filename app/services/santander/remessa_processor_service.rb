@@ -19,7 +19,7 @@ module Santander
         bulk_insert_registros(registro_data)
       end
 
-      handle_customers(registro_data)
+      # handle_customers(registro_data)
 
       { success: true }
     rescue StandardError => e

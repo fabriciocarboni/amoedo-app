@@ -12,9 +12,6 @@ class CustomerHandlingService
 
 
   def self.find_or_create_local_customers(customers_data)
-    # Rails.logger.info("[#{File.basename(__FILE__)}] Entrou aqui...")
-    # Rails.logger.info([#{File.basename(__FILE__)}] customers_data)
-
     customers_data.map do |data|
       cpf_cnpj = data[:cpf_cnpj]
       name = data[:name]
@@ -28,7 +25,6 @@ class CustomerHandlingService
 
 
   def self.handle_asaas_customers(customers)
-    Rails.logger.info(customers)
 
     customers_without_asaas_id = customers.select { |c| c.asaas_customer_id.blank? }
     return if customers_without_asaas_id.empty?
