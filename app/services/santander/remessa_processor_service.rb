@@ -7,7 +7,7 @@ module Santander
     def initialize(file_path, original_filename)
       @file_path = file_path
       @original_filename = original_filename
-      @processamento_id = SecureRandom.uuid
+      @processamento_id = SecureRandom.random_number(1_000_000_000)
     end
 
     def process
