@@ -47,8 +47,8 @@ module Santander
         value
       end
     rescue StandardError => e
-      Rails.logger.error "Data conversion error for field: #{e.message}"
-      raise ParseError, "Invalid data format for field: #{e.message}"
+      Rails.logger.error "[#{File.basename(__FILE__)}] Data conversion error for field: #{e.message}"
+      raise ParseError, "[#{File.basename(__FILE__)}] Invalid data format for field: #{e.message}"
     end
   end
 end
