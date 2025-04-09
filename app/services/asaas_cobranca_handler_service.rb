@@ -146,10 +146,10 @@ class AsaasCobrancaHandlerService
         get_asaas_customer = Customer.find_by(cpf_cnpj: cpf_cnpj)
         puts("55555555555")
         # check if asaas_customer_id is null
-        if get_asaas_customer.nil?
-          puts("6666666666666")
-          puts("Customer with CPF/CNPJ #{cpf_cnpj} not found.")
-        end
+        # if get_asaas_customer.nil?
+        #   puts("6666666666666")
+        #   puts("Customer with CPF/CNPJ #{cpf_cnpj} not found.")
+        # end
 
         asaas_customer_id = get_asaas_customer.asaas_customer_id
         Rails.logger.info("[#{File.basename(__FILE__)}] customer already exists locally with asaas_customer_id #{asaas_customer_id} for #{name}")
@@ -173,9 +173,8 @@ class AsaasCobrancaHandlerService
 
         if cobranca_result[:success]
           Rails.logger.info("[#{File.basename(__FILE__)}] Cobranca created successfully. #{cobranca_result[:data]}")
-
           # save the payment itself along with current customer data so i can have its id
-          # save_cobranca(cobranca_result[:data], customer, processamento_id)
+          save_cobranca(cobranca_result[:data], customer, processamento_id)
         else
           Rails.logger.info("[#{File.basename(__FILE__)}] Cobranca not created. #{cobranca_result[:data]}")
           { success: false, error: "Failed to create cobranca: #{cobranca_result[:data]}" }
