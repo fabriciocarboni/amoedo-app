@@ -10,7 +10,58 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_04_05_191300) do
+ActiveRecord::Schema[8.0].define(version: 2025_04_09_102931) do
+  create_table "cobrancas", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+    t.string "asaas_payment_id"
+    t.string "asaas_customer_id"
+    t.date "date_created"
+    t.string "status"
+    t.string "nome_banco"
+    t.decimal "value", precision: 10, scale: 2
+    t.decimal "net_value", precision: 10, scale: 2
+    t.decimal "original_value", precision: 10, scale: 2
+    t.decimal "interest_value", precision: 10, scale: 2
+    t.date "due_date"
+    t.date "original_due_date"
+    t.date "payment_date"
+    t.date "client_payment_date"
+    t.date "credit_date"
+    t.date "estimated_credit_date"
+    t.string "billing_type"
+    t.boolean "can_be_paid_after_due_date"
+    t.string "pix_transaction"
+    t.text "description"
+    t.string "external_reference"
+    t.integer "installment_number"
+    t.string "invoice_url"
+    t.string "bank_slip_url"
+    t.string "invoice_number"
+    t.string "nosso_numero"
+    t.decimal "discount_value", precision: 10, scale: 2
+    t.date "discount_limit_date"
+    t.integer "discount_due_date_limit_days"
+    t.string "discount_type"
+    t.decimal "fine_value", precision: 10, scale: 2
+    t.string "fine_type"
+    t.string "interest_type"
+    t.bigint "customer_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.integer "processamento_id", null: false
+    t.index ["asaas_customer_id"], name: "index_cobrancas_on_asaas_customer_id"
+    t.index ["asaas_payment_id"], name: "index_cobrancas_on_asaas_payment_id", unique: true
+    t.index ["billing_type"], name: "index_cobrancas_on_billing_type"
+    t.index ["client_payment_date"], name: "index_cobrancas_on_client_payment_date"
+    t.index ["customer_id"], name: "index_cobrancas_on_customer_id"
+    t.index ["date_created"], name: "index_cobrancas_on_date_created"
+    t.index ["due_date"], name: "index_cobrancas_on_due_date"
+    t.index ["invoice_number"], name: "index_cobrancas_on_invoice_number"
+    t.index ["nosso_numero"], name: "index_cobrancas_on_nosso_numero"
+    t.index ["payment_date"], name: "index_cobrancas_on_payment_date"
+    t.index ["processamento_id"], name: "index_cobrancas_on_processamento_id"
+    t.index ["status"], name: "index_cobrancas_on_status"
+  end
+
   create_table "customers", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
     t.string "asaas_customer_id"
     t.date "date_created"
@@ -132,6 +183,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_04_05_191300) do
     t.datetime "updated_at", null: false
     t.string "nome_arquivo_remessa", null: false
     t.integer "processamento_id", null: false
+    t.string "asaas_payment_id"
+    t.index ["asaas_payment_id"], name: "index_remessa_santander_registros_on_asaas_payment_id"
     t.index ["processamento_id"], name: "index_remessa_santander_registros_on_processamento_id"
     t.index ["remessa_santander_header_id"], name: "idx_on_remessa_santander_header_id_4776cc7613"
   end
@@ -153,6 +206,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_04_05_191300) do
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
   end
 
+  add_foreign_key "cobrancas", "customers"
   add_foreign_key "remessa_santander_registros", "remessa_santander_headers"
   add_foreign_key "sessions", "users"
 end

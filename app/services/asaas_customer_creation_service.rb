@@ -19,8 +19,8 @@ class AsaasCustomerCreationService
       data = JSON.parse(response.body)
       { success: true, asaas_customer_id: data["id"] }
     else
-      Rails.logger.error "\n[asaas_customer_creation_service.rb] Asaas API error: #{response.code} - #{response.body}\n"
-      { success: false, error: "\n[asaas_customer_creation_service.rb] Failed to create customer in Asaas\n" }
+      Rails.logger.error "[#{File.basename(__FILE__)}] Asaas API error: #{response.code} - #{response.body}\n"
+      { success: false, error: "Failed to create customer in Asaas\n" }
     end
   end
 end
