@@ -1,15 +1,22 @@
-# app/services/asaas_customer_creation_service.rb
+# app/services/asaas_cobranca_creation_service.rb
 require "httparty"
 
 class AsaasCobrancaCreationService
   include HTTParty
   base_uri ENV["ASAAS_BASE_URI"]
 
+
   def self.create(cobranca)
     response = post("/payments",
-      body: { customer: asaas_customer_id
-              name: name,
-              cpfCnpj: cpf_cnpj }.to_json,
+      body: {
+        customer: cobranca[:asaas_customer_id],
+        name: cobranca[:nome],
+        value: cobranca[:value],
+        dueDate: cobranca[:dueDate],
+        billingType: cobranca[:billingType],
+        description: cobranca[:description],
+        fine: cobranca[:fine]
+      }.to_json,
       headers: {
         "accept" => "application/json",
         "content-type" => "application/json",
@@ -19,10 +26,10 @@ class AsaasCobrancaCreationService
 
     if response.success?
       data = JSON.parse(response.body)
-      { success: true, asaas_customer_id: data["id"] }
+      { success: true, data: data }
     else
-      Rails.logger.error "\n[asaas_customer_creation_service.rb] Asaas API error: #{response.code} - #{response.body}\n"
-      { success: false, error: "\n[asaas_customer_creation_service.rb] Failed to create customer in Asaas\n" }
+      Rails.logger.error "[#{File.basename(__FILE__)}] Asaas API error: #{response.code} - #{response.body}"
+      { success: false, error: "Failed to create payment in Asaas" }
     end
   end
 end

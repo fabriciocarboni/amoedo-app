@@ -1,6 +1,7 @@
 # app/models/remessa_registro.rb
 class RemessaSantanderRegistro < ApplicationRecord
   belongs_to :remessa_santander_header
+  has_many :customers
 
   # Presence and length validations
   validates :codigo_do_registro, presence: true, length: { is: 1 }
@@ -89,4 +90,5 @@ class RemessaSantanderRegistro < ApplicationRecord
       end
     end
   end
+
 end
