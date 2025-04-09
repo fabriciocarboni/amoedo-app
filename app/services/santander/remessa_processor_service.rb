@@ -21,7 +21,7 @@ module Santander
         bulk_insert_registros(registro_data)
       end
 
-      # create 
+      # create cobranca
       create_cobrancas(registro_data)
 
       { success: true }

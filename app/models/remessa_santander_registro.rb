@@ -90,5 +90,4 @@ class RemessaSantanderRegistro < ApplicationRecord
       end
     end
   end
-
 end

@@ -1,7 +1,7 @@
 # app/models/api_key.rb
 
 # it must create a migration rails g migration CreateApiKeys
-# 
+#
 # To create an api key  run below in rails console
 # ApiKey.create!(access_token: SecureRandom.hex(32), client_name: "Tigor", email: "tigor@tigor.ai", active: true)
 
