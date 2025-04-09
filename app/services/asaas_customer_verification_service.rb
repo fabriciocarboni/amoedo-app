@@ -15,8 +15,9 @@ class AsaasCustomerVerificationService
       data = JSON.parse(response.body)
       if !data["data"].empty?
         data["data"].first  # Return the first customer found
+        { success: true, data: data }
       else
-        false
+        { success: false, data: data }
       end
     else
       Rails.logger.error "[#{File.basename(__FILE__)}] Asaas API error: #{response.code} - #{response.body}"

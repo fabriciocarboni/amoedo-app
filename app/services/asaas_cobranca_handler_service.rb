@@ -27,21 +27,56 @@ class AsaasCobrancaHandlerService
       end
 
       if customer.nil? || customer.asaas_customer_id.blank? # This ensures it's only try to access asaas_customer_id if customer is not nil.
+        puts("0000000000000")
         # create asaas customer and get the id to create the cobranca
         Rails.logger.info("[#{File.basename(__FILE__)}] asaas_customer_id is null, checking in asaas for #{name}")
         asaas_customer = ::AsaasCustomerVerificationService.exists?(cpf_cnpj)
+        puts("asaas_customer: #{asaas_customer}")
 
-        if asaas_customer[:success]
+        if !asaas_customer[:data]["data"].empty?
           # update asaas_customer_id locally
           Rails.logger.info("[#{File.basename(__FILE__)}] Updating locally asaas_customer_id for #{name}")
-          customer.update(asaas_customer_id: asaas_customer["id"])
+          # customer.update(asaas_customer_id: asaas_customer["id"])
+          asaas_customer_id = asaas_customer[:data]["data"].first["id"]
+          customer.update(asaas_customer_id: asaas_customer_id)
+
+           cobranca_params = build_cobranca_hash(
+              { asaas_customer_id: asaas_customer_id }, # pass as a hash
+              name,
+              cpf_cnpj,
+              value,
+              billingType,
+              dueDate,
+              externalReference,
+              description,
+              fine,
+              interest
+            )
+
+            Rails.logger.info("[#{File.basename(__FILE__)}] Creating cobranca...cobranca_params: #{cobranca_params}")
+            cobranca_result = ::AsaasCobrancaCreationService.create(cobranca_params)
+            puts("cobranca_result: #{cobranca_result}")
+            if cobranca_result[:success]
+              puts("131313131")
+              Rails.logger.info("[#{File.basename(__FILE__)}] Payment created successfully. #{cobranca_result[:data]}")
+
+              # save the payment itself along with current customer data so i can have its id
+              save_cobranca(cobranca_result[:data], customer, processamento_id)
+
+            else
+              Rails.logger.info("[#{File.basename(__FILE__)}] Failed to create payment: #{name}")
+            end
+
+
+
         else
-        # client has already asaas_customer_id locally so let's create the cobrança
+          puts("12121212121")
+        # Create the customer
         Rails.logger.info("[#{File.basename(__FILE__)}] Customer does not exist in Asaas, creating it for #{name}")
         new_customer_asaas = ::AsaasCustomerCreationService.create(cpf_cnpj, name)
         Rails.logger.info("[#{File.basename(__FILE__)}] new_customer_asaas: #{new_customer_asaas}")
 
-          if new_customer_asaas[:success]
+          if new_customer_asaas
 
             # updating current customer with recently created asaas_customer_id
             Rails.logger.info("[#{File.basename(__FILE__)}] updating current customer with recently created asaas_customer_id for #{name}, #{new_customer_asaas[:asaas_customer_id]}")
@@ -79,15 +114,41 @@ class AsaasCobrancaHandlerService
           end
         end
       else
+        puts("2222222222222")
+        # local customer has asaas_customer_id. Checking if the customer exists in asaas
+        asaas_customer_with_asaas_customer_id = ::AsaasCustomerVerificationService.exists?(cpf_cnpj)
+
+        puts("cpf_cnpj: #{cpf_cnpj}")
+        puts("asaas_customer_with_asaas_customer_id: #{asaas_customer_with_asaas_customer_id}")
+
+        # if !asaas_customer_with_asaas_customer_id
+        if asaas_customer_with_asaas_customer_id[:data]["data"].empty?
+          puts("33333333333333")
+          # create the customer and update assas_customer_id
+          Rails.logger.info("[#{File.basename(__FILE__)}] Customer does not exist in Asaas, creating it for #{name}")
+          new_customer_asaas = ::AsaasCustomerCreationService.create(cpf_cnpj, name)
+
+          # update customer locally with the new assas customer id
+          Rails.logger.info("[#{File.basename(__FILE__)}] Updating asaas_customer_id #{new_customer_asaas["id"]} for #{name}")
+          customer.update(asaas_customer_id: new_customer_asaas["id"])
+        else
+          puts("444444444")
+          puts("asaas_customer_with_asaas_customer_id: #{asaas_customer_with_asaas_customer_id}")
+          Rails.logger.info("[#{File.basename(__FILE__)}] Updating existing customer with asaas_customer_id for #{name}")
+          customer.update(asaas_customer_id: asaas_customer_with_asaas_customer_id[:data]["data"].first["id"])
+        end
+
+
         # customer already exists locallay with asaas_customer_id
         # let's create a cobranca for him
 
         # Getting asaas_customer_id for current existent customer
         get_asaas_customer = Customer.find_by(cpf_cnpj: cpf_cnpj)
-
+        puts("55555555555")
         # check if asaas_customer_id is null
         if get_asaas_customer.nil?
-          raise "Customer with CPF/CNPJ #{cpf_cnpj} not found."
+          puts("6666666666666")
+          puts("Customer with CPF/CNPJ #{cpf_cnpj} not found.")
         end
 
         asaas_customer_id = get_asaas_customer.asaas_customer_id
@@ -139,7 +200,6 @@ class AsaasCobrancaHandlerService
       interest: interest
     }
   end
-
 
   def self.save_cobranca(payment_data, customer, processamento_id)
     cobranca = Cobranca.new(
@@ -212,7 +272,7 @@ class AsaasCobrancaHandlerService
         Rails.logger.warn("[#{File.basename(__FILE__)}] No remessa_santander_registro records found with processamento_id: #{processamento_id}")
       end
 
-      cobranca
+      # cobranca
     else
       Rails.logger.error("[#{File.basename(__FILE__)}] Failed to save cobranca: #{cobranca.errors.full_messages.join(', ')}")
       nil
