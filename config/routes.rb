@@ -21,6 +21,13 @@ Rails.application.routes.draw do
     resources :remessa_uploads, only: [ :new, :create ]
   end
 
+  namespace :api do
+      namespace :v1 do
+        get "cobrancas/listar_cobrancas_cliente", to: "cobrancas#listar_cobrancas_cliente"
+      end
+  end
+
+
   namespace :bradesco do
     resources :remessa_uploads, only: [ :new, :create ]
   end

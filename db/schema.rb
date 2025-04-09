@@ -10,7 +10,18 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_04_09_102931) do
+ActiveRecord::Schema[8.0].define(version: 2025_04_09_161923) do
+  create_table "api_keys", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+    t.string "access_token", null: false
+    t.string "client_name", null: false
+    t.string "email", null: false
+    t.boolean "active", default: true
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["access_token"], name: "index_api_keys_on_access_token", unique: true
+    t.index ["email"], name: "index_api_keys_on_email", unique: true
+  end
+
   create_table "cobrancas", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
     t.string "asaas_payment_id"
     t.string "asaas_customer_id"
