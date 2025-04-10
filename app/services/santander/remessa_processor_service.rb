@@ -39,7 +39,9 @@ module Santander
     end
 
     def process_registros(header_data)
-      File.open(@file_path).each_line.drop(1).map do |line|
+      all_lines = File.readlines(@file_path)
+      # Skip header (first line) and trailer (last line)
+      all_lines[1...-1].map do |line|
         Santander::RemessaRegistroProcessorService.new(line, header_data).parse
       end
     end
