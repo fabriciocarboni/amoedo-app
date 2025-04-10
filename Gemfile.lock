@@ -129,6 +129,7 @@ GEM
       raabro (~> 1.4)
     globalid (1.2.1)
       activesupport (>= 6.1)
+    htmlbeautifier (1.4.3)
     httparty (0.23.1)
       csv
       mini_mime (>= 1.0.0)
@@ -402,6 +403,7 @@ DEPENDENCIES
   debug
   dotenv-rails
   erb-formatter (~> 0.7.3)
+  htmlbeautifier (~> 1.4, >= 1.4.3)
   httparty (~> 0.23.1)
   importmap-rails
   jbuilder
