@@ -8,6 +8,9 @@ class AsaasCobrancaHandlerService
 
   def self.handle_cobrancas(cobrancas, processamento_id)
     cobrancas.each do |cobranca|
+
+      # need to fix cpf and cnpj because if we remove left zeros it can fall in a situation where the cpf starts with zero
+      # example: 81440812500 and 07150130500
       cpf_cnpj = cobranca["numero_de_inscricao_do_pagador"].to_s.gsub(/^0+/, "") # remove left zeros
       name = cobranca["nome_do_pagador"]
       value = cobranca["valor_nominal_do_boleto"]
