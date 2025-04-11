@@ -54,10 +54,6 @@ module Api
       end
 
       def self.format_cobranca_data(cobranca)
-        # dueDateFormatted = (Date.strptime(cobranca.due_date, "%d%m%y") + 1).strftime("%d/%m/%Y")
-        # dateCreatedFormatted = (Date.strptime(cobranca.date_created, "%d%m%y") + 1).strftime("%d/%m/%Y")
-        # puts("dueDateFormatted: #{dueDateFormatted}")
-        puts("dueDate: #{cobranca.due_date}")
         {
           asaas_payment_id: cobranca.asaas_payment_id,
           asaas_customer_id: cobranca.asaas_customer_id,
