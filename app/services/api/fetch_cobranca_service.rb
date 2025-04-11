@@ -54,13 +54,17 @@ module Api
       end
 
       def self.format_cobranca_data(cobranca)
+        # dueDateFormatted = (Date.strptime(cobranca.due_date, "%d%m%y") + 1).strftime("%d/%m/%Y")
+        # dateCreatedFormatted = (Date.strptime(cobranca.date_created, "%d%m%y") + 1).strftime("%d/%m/%Y")
+        # puts("dueDateFormatted: #{dueDateFormatted}")
+        puts("dueDate: #{cobranca.due_date}")
         {
           asaas_payment_id: cobranca.asaas_payment_id,
           asaas_customer_id: cobranca.asaas_customer_id,
-          date_created: cobranca.date_created,
+          date_created: cobranca.due_date.is_a?(String) ? Date.strptime(cobranca.date_created, "%d%m%y").strftime("%d/%m/%Y") : cobranca.date_created.strftime("%d/%m/%Y"),
+          due_date: cobranca.due_date.is_a?(String) ? Date.strptime(cobranca.due_date, "%d%m%y").strftime("%d/%m/%Y") : cobranca.due_date.strftime("%d/%m/%Y"),
           status: cobranca.status,
           value: cobranca.value,
-          due_date: cobranca.due_date,
           invoice_url: cobranca.invoice_url,
           bank_slip_url: cobranca.bank_slip_url
         }
