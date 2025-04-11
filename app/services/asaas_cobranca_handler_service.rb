@@ -8,17 +8,14 @@ class AsaasCobrancaHandlerService
 
   def self.handle_cobrancas(cobrancas, processamento_id)
     cobrancas.each do |cobranca|
-
-      # need to fix cpf and cnpj because if we remove left zeros it can fall in a situation where the cpf starts with zero
-      # example: 81440812500 and 07150130500
-      cpf_cnpj = cobranca["numero_de_inscricao_do_pagador"].to_s.gsub(/^0+/, "") # remove left zeros
+      cpf_cnpj =  validate_cpf_cnpj(cobranca["numero_de_inscricao_do_pagador"])
       name = cobranca["nome_do_pagador"]
       value = cobranca["valor_nominal_do_boleto"]
       billingType = "BOLETO"
       dueDate = Date.strptime(cobranca["data_de_vencimento_do_boleto"], "%d%m%y").strftime("%Y-%m-%d") # convert from DDMMYY to YYYY-MM-DD to pass to Asaas api
       dueDateTexto = (Date.strptime(cobranca["data_de_vencimento_do_boleto"], "%d%m%y") + 1).strftime("%d/%m/%Y") # text to be displayed in description as DD/MM/DD + 1 day
       externalReference = cobranca["identificacao_do_boleto_na_empresa"].to_s.gsub(/^0+/, "") # remove left zeros
-      fine = (cobranca["percentual_de_multa"].to_f * 100).to_i.to_s # copnverting 0.02 to 2
+      fine = (cobranca["percentual  _de_multa"].to_f * 100).to_i.to_s # copnverting 0.02 to 2
       fine_texto = ((value.to_f * (fine.to_f / 100)).round(2)).to_s # calculate the fine in R$ to show in description
       interest = 3 # juros de mora 3%
       interest_mora_dia_texto = (((value.to_f * (interest.to_f / 100)) / 30).round(2)).to_s # Calculates mora diaria (valor * interest) / 30 dias
@@ -278,6 +275,26 @@ class AsaasCobrancaHandlerService
     else
       Rails.logger.error("[#{File.basename(__FILE__)}] Failed to save cobranca: #{cobranca.errors.full_messages.join(', ')}")
       nil
+    end
+  end
+
+  def self.validate_cpf_cnpj(number)
+    # Ensure the input is a string
+    number_str = number.to_s
+
+    # For a 14-character input, determine if it's a CPF with leading zeros or a CNPJ
+    if number_str.length == 14
+      # Check if the first 3 characters are zeros and the remaining part has 11 digits (CPF)
+      if number_str.start_with?("000") && number_str[3..-1].length == 11
+        # It's a CPF with leading zeros - return just the 11-digit CPF
+        number_str[3..-1]
+      else
+        # It's a CNPJ - return the full 14-digit CNPJ
+        number_str
+      end
+    else
+      # Invalid format - return the original string
+      number_str
     end
   end
 end
