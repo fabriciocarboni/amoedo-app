@@ -11,6 +11,7 @@ class AsaasCobrancaHandlerService
       cpf_cnpj =  validate_cpf_cnpj(cobranca["numero_de_inscricao_do_pagador"])
       name = cobranca["nome_do_pagador"]
       value = cobranca["valor_nominal_do_boleto"]
+      identificacao_do_boleto_na_empresa = cobranca["identificacao_do_boleto_na_empresa"]
       billingType = "BOLETO"
       dueDate = Date.strptime(cobranca["data_de_vencimento_do_boleto"], "%d%m%y").strftime("%Y-%m-%d") # convert from DDMMYY to YYYY-MM-DD to pass to Asaas api
       dueDateTexto = (Date.strptime(cobranca["data_de_vencimento_do_boleto"], "%d%m%y") + 1).strftime("%d/%m/%Y") # text to be displayed in description as DD/MM/DD + 1 day
@@ -60,8 +61,8 @@ class AsaasCobrancaHandlerService
               puts("131313131")
               Rails.logger.info("[#{File.basename(__FILE__)}] Payment created successfully. #{cobranca_result[:data]}")
 
-              # save the payment itself along with current customer data so i can have its id
-              save_cobranca(cobranca_result[:data], customer, processamento_id)
+              # save the payment itself along with current customer data so i can have its id and asaas_payment_id
+              save_cobranca(cobranca_result[:data], customer, processamento_id, identificacao_do_boleto_na_empresa)
 
             else
               Rails.logger.info("[#{File.basename(__FILE__)}] Failed to create payment: #{name}")
@@ -103,7 +104,7 @@ class AsaasCobrancaHandlerService
               Rails.logger.info("[#{File.basename(__FILE__)}] Payment created successfully. #{cobranca_result[:data]}")
 
               # save the payment itself along with current customer data so i can have its id
-              save_cobranca(cobranca_result[:data], customer, processamento_id)
+              save_cobranca(cobranca_result[:data], customer, processamento_id, identificacao_do_boleto_na_empresa)
 
             else
               Rails.logger.info("[#{File.basename(__FILE__)}] Failed to create payment: #{name}")
@@ -145,11 +146,6 @@ class AsaasCobrancaHandlerService
         # Getting asaas_customer_id for current existent customer
         get_asaas_customer = Customer.find_by(cpf_cnpj: cpf_cnpj)
         puts("55555555555")
-        # check if asaas_customer_id is null
-        # if get_asaas_customer.nil?
-        #   puts("6666666666666")
-        #   puts("Customer with CPF/CNPJ #{cpf_cnpj} not found.")
-        # end
 
         asaas_customer_id = get_asaas_customer.asaas_customer_id
         Rails.logger.info("[#{File.basename(__FILE__)}] customer already exists locally with asaas_customer_id #{asaas_customer_id} for #{name}")
@@ -174,7 +170,7 @@ class AsaasCobrancaHandlerService
         if cobranca_result[:success]
           Rails.logger.info("[#{File.basename(__FILE__)}] Cobranca created successfully. #{cobranca_result[:data]}")
           # save the payment itself along with current customer data so i can have its id
-          save_cobranca(cobranca_result[:data], customer, processamento_id)
+          save_cobranca(cobranca_result[:data], customer, processamento_id, identificacao_do_boleto_na_empresa)
         else
           Rails.logger.info("[#{File.basename(__FILE__)}] Cobranca not created. #{cobranca_result[:data]}")
           { success: false, error: "Failed to create cobranca: #{cobranca_result[:data]}" }
@@ -200,7 +196,7 @@ class AsaasCobrancaHandlerService
     }
   end
 
-  def self.save_cobranca(payment_data, customer, processamento_id)
+  def self.save_cobranca(payment_data, customer, processamento_id, identificacao_do_boleto_na_empresa)
     cobranca = Cobranca.new(
       # Basic Payment Information
       asaas_payment_id: payment_data["id"],
@@ -260,18 +256,20 @@ class AsaasCobrancaHandlerService
     if cobranca.save
       Rails.logger.info("[#{File.basename(__FILE__)}] Cobranca saved successfully with ID: #{cobranca.id}")
 
-      # Update all RemessaSantanderRegistro records with matching processamento_id
-      updated_count = RemessaSantanderRegistro.where(
-        processamento_id: processamento_id
-      ).update_all(asaas_payment_id: payment_data["id"])
+      # Update RemessaSantanderRegistro record with asaas_payment_id with matching processamento_id and identificacao_do_boleto_na_empresa
+      update_registro = RemessaSantanderRegistro.find_by(
+        identificacao_do_boleto_na_empresa: identificacao_do_boleto_na_empresa
+        )
+      puts("identificacao_do_boleto_na_empresa: #{identificacao_do_boleto_na_empresa}")
+      puts("update_registro: #{update_registro}")
+      # exit()
 
-      if updated_count > 0
-        Rails.logger.info("[#{File.basename(__FILE__)}] Updated #{updated_count} remessa_santander_registro records with asaas_payment_id: #{payment_data["id"]}")
+      if update_registro && update_registro.update(asaas_payment_id: payment_data["id"])
+        Rails.logger.info("[#{File.basename(__FILE__)}] Updated remessa_santander_registro identified by identificacao_do_boleto_na_empresa: #{payment_data["identificacao_do_boleto_na_empresa"]} with asaas_payment_id: #{payment_data["id"]}")
       else
-        Rails.logger.warn("[#{File.basename(__FILE__)}] No remessa_santander_registro records found with processamento_id: #{processamento_id}")
+        Rails.logger.error("[#{File.basename(__FILE__)}] Failed to update remessa_santander_registro with identificacao_do_boleto_na_empresa: #{payment_data["identificacao_do_boleto_na_empresa"]}")
       end
 
-      # cobranca
     else
       Rails.logger.error("[#{File.basename(__FILE__)}] Failed to save cobranca: #{cobranca.errors.full_messages.join(', ')}")
       nil
