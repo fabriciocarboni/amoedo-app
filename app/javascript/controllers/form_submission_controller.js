@@ -34,7 +34,7 @@ export default class extends Controller {
 
         // Add disabled appearance
         this.submitButtonTarget.classList.remove("bg-[#2965f6]", "hover:bg-blue-700")
-        this.submitButtonTarget.classList.add("bg-gray-400", "cursor-not-allowed")
+        this.submitButtonTarget.classList.add("bg-gray-300", "cursor-not-allowed")
 
         // Change button text
         this.buttonTextTarget.textContent = "Processando..."
