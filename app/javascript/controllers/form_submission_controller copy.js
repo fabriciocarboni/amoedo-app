@@ -6,9 +6,7 @@ export default class extends Controller {
 
     connect() {
         this.form = this.element
-        // Use a more specific event listener that's guaranteed to fire
         document.addEventListener("turbo:submit-end", this.handleTurboSubmitEnd.bind(this))
-        document.addEventListener("turbo:load", this.resetOnPageLoad.bind(this))
 
         // Make sure spinner is hidden on connect
         if (this.hasSpinnerTarget) {
@@ -19,7 +17,6 @@ export default class extends Controller {
 
     disconnect() {
         document.removeEventListener("turbo:submit-end", this.handleTurboSubmitEnd.bind(this))
-        document.removeEventListener("turbo:load", this.resetOnPageLoad.bind(this))
     }
 
     initialize() {
@@ -50,12 +47,11 @@ export default class extends Controller {
     }
 
     reset() {
-        console.log("Reset called")
         this.submitting = false
         this.submitButtonTarget.disabled = false
 
         // Restore original appearance
-        this.submitButtonTarget.classList.remove("bg-gray-300", "cursor-not-allowed") // Fixed class name
+        this.submitButtonTarget.classList.remove("bg-gray-400", "cursor-not-allowed")
         this.submitButtonTarget.classList.add("bg-[#2965f6]", "hover:bg-blue-700")
 
         // Restore button text
@@ -68,13 +64,7 @@ export default class extends Controller {
         }
     }
 
-    resetOnPageLoad() {
-        // This ensures the button resets when the page loads after redirect
-        this.reset()
-    }
-
     handleTurboSubmitEnd(event) {
-        console.log("Turbo submit end", event.detail.formSubmission.formElement, this.form)
         if (event.detail.formSubmission.formElement === this.form) {
             this.reset()
         }
