@@ -6,19 +6,15 @@
           <img src="https://www.amoedodistribuidora.com/wp-content/uploads/2024/03/LOGOTIPO_0003_AMOEDO.png" alt="Amoedo Logo" class="h-25 w-auto">
         </a>
       </div>
-
       <div class="w-full px-6 sm:px-24 md:px-8 lg:px-12">
         <p class="text-center text-3xl font-bold">Bem-vindo</p>
         <p class="mt-2 text-center">Faça login para acessar sua conta.</p>
-
         <% if alert = flash[:alert] %>
           <p class="py-2 px-3 bg-red-50 mt-4 text-red-500 font-medium rounded-lg" id="alert"><%= alert %></p>
         <% end %>
-
         <% if notice = flash[:notice] %>
           <p class="py-2 px-3 bg-green-50 mt-4 text-green-500 font-medium rounded-lg" id="notice"><%= notice %></p>
         <% end %>
-
         <%= form_with url: session_url, class: "flex flex-col pt-3 md:pt-6" do |form| %>
           <div class="flex flex-col pt-4">
             <div class="relative flex overflow-hidden rounded-lg border focus-within:border-transparent focus-within:ring-2 transition focus-within:ring-blue-600">
@@ -51,18 +47,14 @@
                   class: "w-full flex-1 appearance-none border-gray-300 bg-white py-2 px-4 text-base text-gray-700 placeholder-gray-400 focus:outline-none" %>
             </div>
           </div>
-
           <div class="mb-6 text-sm">
             <%= link_to "Esqueceu a senha?", new_password_path, class: "font-medium text-blue-600 hover:text-blue-500" %>
           </div>
-
           <%= form.submit "Entrar", class: "w-full rounded-lg bg-blue-700 px-4 py-2 text-center text-base font-semibold text-white shadow-md transition ease-in hover:bg-blue-600 focus:outline-none focus:ring-2" %>
         <% end %>
-
       </div>
     </div>
   </div>
-
   <div class="hidden md:block md:w-1/2 lg:w-2/3 h-screen overflow-hidden relative bg-black">
     <div class="absolute inset-0 bg-blue-800 opacity-65 z-10 pointer-events-none"></div>
     <div class="video-wrapper">
@@ -76,7 +68,6 @@
     </div>
   </div>
 </div>
-
 <style>
   body, html {
     margin: 0;
@@ -84,7 +75,7 @@
     overflow: hidden;
     height: 100%;
   }
-  
+
   main.container {
     padding: 0 !important;
     margin: 0 !important;
@@ -93,7 +84,7 @@
     height: 100vh !important;
     overflow: hidden !important;
   }
-  
+
   .video-wrapper {
     position: absolute;
     top: 50%;
@@ -105,7 +96,7 @@
     min-height: 100%;
     overflow: hidden;
   }
-  
+
   .video-wrapper iframe {
     position: absolute;
     top: 50%;
