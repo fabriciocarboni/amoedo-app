@@ -22,7 +22,9 @@ module Santander
       end
 
       # create cobranca
-      create_cobrancas(registro_data)
+      # This process is commented out for now because Amoedo will not use asaas. this call is responsible to create the
+      # cobrancas in asaas.
+      # create_cobrancas(registro_data)
 
       { success: true }
     rescue StandardError => e
@@ -70,11 +72,11 @@ module Santander
       Rails.logger.info "[#{File.basename(__FILE__)}] Bulk inserted #{inserted_count} RemessaRegistro records"
     end
 
-    def create_cobrancas(cobrancas)
-      puts "Entering create_cobrancas method"
-      processamento_id ||= @processamento_id
-      results = ::AsaasCobrancaHandlerService.handle_cobrancas(cobrancas, processamento_id)
-      { success: true, message: "Processed #{results.length} registros" }
-    end
+    # def create_cobrancas(cobrancas)
+    #   puts "Entering create_cobrancas method"
+    #   processamento_id ||= @processamento_id
+    #   results = ::AsaasCobrancaHandlerService.handle_cobrancas(cobrancas, processamento_id)
+    #   { success: true, message: "Processed #{results.length} registros" }
+    # end
   end
 end
