@@ -39,12 +39,6 @@
         <% end %>
       <% end %>
       <!-- flash -->
-      <% if flash[:notice] %>
-        <div class="mt-4 p-3 bg-green-100 border border-green-200 text-green-700 rounded-lg"
-            data-controller="flash-message">
-          <%= flash[:notice] %>
-        </div>
-      <% end %>
       <% if flash[:alert] %>
         <div class="mt-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg"
             data-controller="flash-message">
@@ -58,7 +52,10 @@
     <%= button_to "Sair", destroy_session_path, method: :delete, class: "px-4 py-2 text-sm font-medium text-center text-white bg-red-600 rounded-lg hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300" %>
   </div>
 </div>
-</div>
+
+<!-- Render the success modal if needed -->
+<%= render partial: 'success_modal' if @show_success_modal %>
+
 <script>
   // Function to set up the file input functionality
   function setupFileInput(bank) {

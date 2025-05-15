@@ -3,6 +3,12 @@ module Santander
   class RemessaUploadsController < ApplicationController
     def new
       # Render the form for Santander uploads
+      @show_success_modal = flash[:show_success_modal]
+      @nome_arquivo_remessa = flash[:nome_arquivo_remessa]
+      @registros_count = flash[:registros_count]
+      @valor_total_dos_boletos = flash[:valor_total_dos_boletos]
+      @valor_total_mismatch = flash[:valor_total_mismatch]
+      @soma_registros = flash[:soma_registros]
     end
 
     def create
@@ -18,7 +24,29 @@ module Santander
       result = Santander::RemessaProcessorService.new(file_path, original_filename).process
 
       if result[:success]
-        flash[:notice] = "Arquivo de remessa Santander processado com sucesso!"
+        # Prepare data for the success modal
+        processamento_id = result[:processamento_id]
+
+        # Get the trailer record
+        trailer = RemessaSantanderTrailer.find_by(processamento_id: processamento_id)
+
+        # Get the registros
+        registros = RemessaSantanderRegistro.where(processamento_id: processamento_id)
+
+        # Calculate the sum of valor_nominal_do_boleto from registros
+        soma_registros = registros.sum(:valor_nominal_do_boleto)
+
+        # Check if the sum matches the valor_total_dos_boletos from trailer
+        valor_total_mismatch = (soma_registros.round(2) != trailer.valor_total_dos_boletos.round(2))
+
+        # Use flash.now for Turbo Stream responses
+        flash[:show_success_modal] = true
+        flash[:nome_arquivo_remessa] = original_filename
+        flash[:registros_count] = registros.count
+        flash[:valor_total_dos_boletos] = trailer.valor_total_dos_boletos
+        flash[:valor_total_mismatch] = valor_total_mismatch
+        flash[:soma_registros] = soma_registros if valor_total_mismatch
+
         redirect_to new_santander_remessa_upload_path
       else
         flash[:alert] = "Erro ao processar arquivo: #{result[:error]}"
