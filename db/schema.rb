@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_04_14_145710) do
+ActiveRecord::Schema[8.0].define(version: 2025_05_15_105230) do
   create_table "api_keys", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
     t.string "access_token", null: false
     t.string "client_name", null: false
@@ -199,6 +199,18 @@ ActiveRecord::Schema[8.0].define(version: 2025_04_14_145710) do
     t.index ["identificacao_do_boleto_na_empresa"], name: "index_remessa_santander_registros_on_id_boleto"
     t.index ["processamento_id"], name: "index_remessa_santander_registros_on_processamento_id"
     t.index ["remessa_santander_header_id"], name: "idx_on_remessa_santander_header_id_4776cc7613"
+  end
+
+  create_table "remessa_santander_trailers", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+    t.string "codigo_do_registro", limit: 1
+    t.string "quantidade_de_registros_no_arquivo", limit: 6
+    t.decimal "valor_total_dos_boletos", precision: 11, scale: 2
+    t.string "numero_sequencial_de_registros_no_arquivo", limit: 6
+    t.string "nome_arquivo_remessa", null: false
+    t.integer "processamento_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["processamento_id"], name: "index_remessa_santander_trailers_on_processamento_id"
   end
 
   create_table "sessions", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|

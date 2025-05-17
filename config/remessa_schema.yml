@@ -219,3 +219,17 @@ registro_movimento:
   numero_sequencial_do_registro_no_arquivo:
     start: 395
     length: 6
+
+trailer:
+  codigo_do_registro:
+    start: 1
+    length: 1
+  quantidade_de_registros_no_arquivo:
+    start: 2
+    length: 6
+  valor_total_dos_boletos:
+    start: 8
+    length: 13
+  numero_sequencial_de_registros_no_arquivo:
+    start: 395
+    length: 6
