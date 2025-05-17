@@ -17,16 +17,16 @@ Rails.application.routes.draw do
   # Defines the root path route ("/")
   root "pages#home"
 
-  namespace :santander do
-    resources :remessa_uploads, only: [ :new, :create ]
-  end
-
   namespace :api do
       namespace :v1 do
-        get "cobrancas/listar_cobrancas_cliente", to: "cobrancas#listar_cobrancas_cliente"
+        get "asaas/cobrancas/listar_cobrancas_cliente", to: "asaas_cobrancas#listar_cobrancas_cliente"
+        get "santander/cobrancas/listar_cobrancas_cliente", to: "santander_cobrancas#listar_cobrancas_cliente"
       end
   end
 
+  namespace :santander do
+    resources :remessa_uploads, only: [ :new, :create ]
+  end
 
   namespace :bradesco do
     resources :remessa_uploads, only: [ :new, :create ]

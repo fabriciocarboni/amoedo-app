@@ -1,7 +1,7 @@
 # app/controllers/api/v1/cobrancas_controller.rb
 module Api
   module V1
-    class CobrancasController < BaseController
+    class AsaasCobrancasController < BaseController
       def listar_cobrancas_cliente
         begin
           # Get cpf_cnpj directly from params
@@ -12,7 +12,7 @@ module Api
             return
           end
 
-          result = Api::FetchCobrancaService.get_cobrancas(cpf_cnpj)
+          result = Api::Asaas::FetchCobrancaService.get_cobrancas(cpf_cnpj)
 
           render json: result, status: :ok
         rescue ActiveRecord::RecordNotFound => e
