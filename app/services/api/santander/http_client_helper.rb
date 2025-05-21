@@ -84,7 +84,8 @@ module Api
           raise "Failed to load PKCS12 certificate for #{subsidiary_key}: #{e.message}"
         end
 
-        ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE # TODO: Change to VERIFY_PEER and add server CA if needed
+        # ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE # TODO: Change to VERIFY_PEER and add server CA if needed
+        ssl_context.verify_mode = OpenSSL::SSL::VERIFY_PEER # TODO: Change to VERIFY_PEER and add server CA if needed
 
         ssl_context.min_version = :TLS1_2 # Or OpenSSL::SSL::TLS1_2_VERSION
 
