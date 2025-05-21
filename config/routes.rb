@@ -23,6 +23,8 @@ Rails.application.routes.draw do
         get "santander/cobrancas/listar_cobrancas_cliente", to: "santander_cobrancas#listar_cobrancas_cliente"
       end
   end
+  # Route for downloading boletos
+  get "api/v1/boletos/:filename", to: "api/v1/boletos#download", as: "download_boleto"
 
   namespace :santander do
     resources :remessa_uploads, only: [ :new, :create ]
@@ -31,4 +33,6 @@ Rails.application.routes.draw do
   namespace :bradesco do
     resources :remessa_uploads, only: [ :new, :create ]
   end
+
+  post "/chat_widget/lookup_boleto", to: "chat_widget#lookup_boleto"
 end
