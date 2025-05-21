@@ -150,7 +150,8 @@ module Api
           raise "Failed to load PKCS12 certificate for #{subsidiary_key} (get_boleto_link): #{e.message}"
         end
 
-        http.verify_mode = OpenSSL::SSL::VERIFY_NONE # TODO: Review for production
+        # http.verify_mode = OpenSSL::SSL::VERIFY_NONE # TODO: Review for production
+        http.verify_mode = OpenSSL::SSL::VERIFY_PEER # TODO: Review for production
         # if http.verify_mode == OpenSSL::SSL::VERIFY_PEER
         #   http.ca_file = Rails.root.join('config', 'certificates', 'server_ca_bundle.pem').to_s
         # end

@@ -31,15 +31,9 @@ module Api
 
         # Configure server certificate verification (important for production)
         # Using VERIFY_NONE for now to match previous state, but this should be reviewed.
-        http.verify_mode = OpenSSL::SSL::VERIFY_NONE # TODO: Change to VERIFY_PEER and set ca_file/ca_path
-        # if http.verify_mode == OpenSSL::SSL::VERIFY_PEER
-        #   http.ca_file = Rails.root.join('config', 'certificates', 'server_ca_bundle.pem').to_s # Example
-        # end
+        # http.verify_mode = OpenSSL::SSL::VERIFY_NONE # TODO: Change to VERIFY_PEER and set ca_file/ca_path
+        http.verify_mode = OpenSSL::SSL::VERIFY_PEER
 
-        # Set TLS version if necessary (Net::HTTP usually negotiates well)
-        # http.min_version = :TLS1_2 # or OpenSSL::SSL::TLS1_2_VERSION
-
-        # Enable debug output for Net::HTTP if needed during further testing
         http.set_debug_output($stdout) if ENV["NET_HTTP_DEBUG"] == "true" || false # Control with ENV var or set to true
 
         request = Net::HTTP::Post.new(uri.request_uri)
@@ -49,7 +43,6 @@ module Api
           "grant_type" => "client_credentials"
         })
         request["Content-Type"] = "application/x-www-form-urlencoded"
-        # Net::HTTP adds some default headers like Accept Encoding, User-Agent etc.
 
         begin
           Rails.logger.info("[#{File.basename(__FILE__)}] Sending Net::HTTP POST request to #{uri.host}#{uri.path}")
