@@ -18,7 +18,6 @@ module Api
 
 
       def self.get_cobrancas(cpf_cnpj)
-
         if cpf_cnpj.blank?
           raise ArgumentError, "CPF/CNPJ cannot be blank"
         end
