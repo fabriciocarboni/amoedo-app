@@ -87,7 +87,7 @@ jobs:
       id: request
       uses: tyrrrz/action-http-request@master
       with:
-        url: https://zapi.portainer.buzzlabs.pt/api/webhooks/6a65a472-3695-429f-9298-7565da895e09
+        url: https://zapi.portainer.buzzlabs.pt/api/webhooks/c94c4f19-c616-45f9-8557-f62d535932e8
         method: POST
 
     - name: Print outputs
