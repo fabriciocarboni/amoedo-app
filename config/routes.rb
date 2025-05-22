@@ -24,7 +24,7 @@ Rails.application.routes.draw do
       end
   end
   # Route for downloading boletos
-  get "api/v1/boletos/:filename", to: "api/v1/boletos#download", as: "download_boleto"
+  # get "api/v1/boletos/:filename", to: "api/v1/boletos#download", as: "download_boleto"
 
   namespace :santander do
     resources :remessa_uploads, only: [ :new, :create ]
