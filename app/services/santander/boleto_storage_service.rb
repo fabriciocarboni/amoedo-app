@@ -7,7 +7,7 @@ require "uri"      # For URI.parse
 module Santander
   class BoletoStorageService
     # Directory to store downloaded boletos temporarily before ActiveStorage upload
-    TEMP_BOLETOS_DIR = Rails.root.join("storage", "temp_boletos", "santander")
+    TEMP_BOLETOS_DIR = Rails.root.join("storage", "boletos", "santander")
 
     # Initializes the service.
     # @param download_url_from_bank [String] The URL provided by the bank to download the PDF.
@@ -120,9 +120,14 @@ module Santander
         )
 
         unless ENV["APP_HOST"]
-          Rails.logger.warn("[#{File.basename(__FILE__)}] APP_HOST environment variable is not set. rails_blob_url may generate incorrect URLs.")
+          Rails.logger.warn("[#{File.basename(__FILE__)}] APP_HOST environment variable is not set. short_download_url may generate incorrect URLs.")
         end
-        Rails.application.routes.url_helpers.rails_blob_url(blob, host: ENV["APP_HOST"])
+
+        # Generate a short token for this blob
+        token = ShortUrlService.generate_for_blob(blob)
+
+        # Use the short URL helper
+        Rails.application.routes.url_helpers.short_download_url(token, host: ENV["APP_HOST"])
       rescue StandardError => e
         Rails.logger.error("[#{File.basename(__FILE__)}] Failed to store boleto in ActiveStorage.")
         Rails.logger.error("Error Type: #{e.class}")

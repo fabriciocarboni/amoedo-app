@@ -34,5 +34,24 @@ Rails.application.routes.draw do
     resources :remessa_uploads, only: [ :new, :create ]
   end
 
-  post "/chat_widget/lookup_boleto", to: "chat_widget#lookup_boleto"
+  # Custom Active Storage routes
+  direct :custom_rails_blob do |blob, options|
+    route_for(
+      :download_file,
+      blob.signed_id,
+      blob.filename,
+      options
+    )
+  end
+
+  # Map the Active Storage routes to custom paths
+  scope "/files" do
+    get "/download/:signed_id/*filename", to: "active_storage/blobs/redirect#show", as: :download_file
+    get "/representation/:signed_blob_id/:variation_key/*filename", to: "active_storage/representations/redirect#show", as: :representation_file
+    get "/proxy/:signed_id/*filename", to: "active_storage/blobs/proxy#show", as: :proxy_file
+  end
+
+  # Short URL route with format support
+  get "dl/:token", to: "downloads#show", as: :short_download
+  get "dl/:token.:format", to: "downloads#show"
 end
