@@ -68,17 +68,6 @@ module Api
           ssl_context.cert = p12.certificate # This is the client's certificate
           ssl_context.key = p12.key         # This is the client's private key
 
-          # Add CA certificates if Santander provides a specific CA bundle for their client certs
-          # This helps the server verify your client certificate if it's issued by an intermediate CA
-          # not in the server's default trust store.
-          # Example: if you had a ca_bundle.pem for client certs
-          # ssl_context.ca_file = Rails.root.join('config', 'certificates', 'santander_client_ca_bundle.pem').to_s
-          # Or add them directly:
-          # store = OpenSSL::X509::Store.new
-          # store.add_file(Rails.root.join('config', 'certificates', 'santander_intermediate_ca.pem').to_s)
-          # store.add_file(Rails.root.join('config', 'certificates', 'santander_root_ca.pem').to_s)
-          # ssl_context.cert_store = store
-
         rescue OpenSSL::PKCS12::PKCS12Error => e
           Rails.logger.error("[#{File.basename(__FILE__)}] Failed to load PKCS12 certificate for #{subsidiary_key}: #{e.message}. Check PFX file and password.")
           raise "Failed to load PKCS12 certificate for #{subsidiary_key}: #{e.message}"
