@@ -1,5 +1,7 @@
 // Chat Widget Script
-console.log('--- CHAT WIDGET SCRIPT PARSED ---');
+debugger;
+console.log('--- CHAT WIDGET SCRIPT ATTEMPTING TO INITIALIZE ---'); // New log
+try { // Add a try block around the entire IIFE content
 (function () {
     // Create and inject styles
     const styles = `
@@ -671,4 +673,10 @@ console.log('--- CHAT WIDGET SCRIPT PARSED ---');
             toggleButton.classList.remove('active');
         });
     });
+    console.log('--- CHAT WIDGET IIFE COMPLETED SUCCESSFULLY ---'); // New log
 })();
+} catch (e) {
+    console.error("🔴🔴🔴 ERROR EXECUTING CHAT WIDGET SCRIPT: 🔴🔴🔴", e);
+    // You might want to re-throw or handle, but for debugging, just logging is fine.
+}
+console.log('--- CHAT WIDGET SCRIPT FILE PARSED (AFTER TRY-CATCH) ---'); // New log

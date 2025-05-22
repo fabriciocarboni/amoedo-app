@@ -2,4 +2,4 @@
 import "@hotwired/turbo-rails"
 import "controllers"
 import 'flowbite';
-import "./chat-widget"
+// import "./chat-widget"
