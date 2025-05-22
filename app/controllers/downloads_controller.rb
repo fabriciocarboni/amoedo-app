@@ -1,34 +1,48 @@
 # app/controllers/downloads_controller.rb
 class DownloadsController < ApplicationController
-  # Skip authentication if you have it
-  # skip_before_action :authenticate_user!, if: -> { params[:token].present? }, only: [ :show ]
+  # Use the provided class method to skip authentication for the show action
+  allow_unauthenticated_access only: [ :show ], if: -> { params[:token].present? }
 
-  # Skip CSRF protection for public downloads
+  # Keep your existing CSRF skip
   skip_before_action :verify_authenticity_token, only: [ :show ]
 
   rescue_from ActiveStorage::FileNotFoundError, with: :handle_file_not_found
 
   def show
-    # Find the blob using the short URL token
-    blob = ShortUrlService.get_blob_from_token(params[:token])
+  # Find the blob using the short URL token
+  blob = ShortUrlService.get_blob_from_token(params[:token])
 
-    if blob.nil?
-      # Handle not found or expired
-      Rails.logger.info("File not found or link expired for token: #{params[:token]}")
-      render plain: "File not found or link expired", status: :not_found
-      return
-    end
+  if blob.nil?
+    # Handle not found or expired
+    Rails.logger.info("File not found or link expired for token: #{params[:token]}")
+    render plain: "File not found or link expired", status: :not_found
+    return
+  end
 
-    # Log the access
-    Rails.logger.info("Serving file: #{blob.filename} (#{blob.content_type}) for token: #{params[:token]}")
+  # Get the original filename from ShortUrl model
+  short_url = ShortUrl.find_by(token: params[:token])
+  original_filename = short_url&.filename || blob.filename.to_s
 
-    # Serve the file directly
-    serve_blob(blob)
+  # Log the access
+  Rails.logger.info("Serving file: #{original_filename} (#{blob.content_type}) for token: #{params[:token]}")
+
+  # Serve the file with the original filename
+  serve_blob(blob, original_filename)
   end
 
   private
 
-  def serve_blob(blob)
+  # def allow_public_access
+  #   # This method does nothing, effectively bypassing authentication for the show action
+  #   true
+  # end
+
+  private
+
+  def serve_blob(blob, filename = nil)
+    # Use the provided filename or fall back to blob's filename
+    filename ||= blob.filename.to_s
+
     # Set caching headers
     expires_in 1.hour, public: true
     response.headers["Cache-Control"] = "public, max-age=3600"
@@ -40,10 +54,10 @@ class DownloadsController < ApplicationController
     # Determine disposition based on content type
     disposition = determine_disposition(blob.content_type)
 
-    # Set content disposition header
+    # Set content disposition header with the original filename
     response.headers["Content-Disposition"] = ActionDispatch::Http::ContentDisposition.format(
       disposition: disposition,
-      filename: blob.filename.to_s
+      filename: filename
     )
 
     # Stream the file based on storage service
@@ -60,17 +74,18 @@ class DownloadsController < ApplicationController
 
         send_file file_path,
                   type: blob.content_type,
-                  disposition: disposition
+                  disposition: disposition,
+                  filename: filename  # Use the original filename
       else
         # For cloud storage (S3, GCS, etc.)
         data = blob.download
         send_data data,
                   type: blob.content_type,
                   disposition: disposition,
-                  filename: blob.filename.to_s
+                  filename: filename  # Use the original filename
       end
     rescue StandardError => e
-      Rails.logger.error("Error serving file #{blob.filename}: #{e.message}")
+      Rails.logger.error("Error serving file #{filename}: #{e.message}")
       Rails.logger.error(e.backtrace.join("\n"))
       render plain: "Error accessing file", status: :internal_server_error
     end
