@@ -1,38 +1,30 @@
+-- #############################################################################
+-- # Part 1: Run these commands as a PostgreSQL superuser (e.g., 'postgres')   #
+-- # while connected to the default 'postgres' database or any maintenance DB. #
+-- #############################################################################
 
--- Create the application database with Rails naming convention
-CREATE DATABASE amoedo_app_production;
+CREATE USER amoedo_user WITH PASSWORD 'YOUR_VERY_SECURE_PASSWORD_HERE';
 
--- Create the new user with a secure password
-CREATE USER amoedo_user WITH PASSWORD '';
+ALTER USER amoedo_user CREATEDB; -- Allows amoedo_user to create new databases
 
--- Make the password valid indefinitely (optional)
 ALTER USER amoedo_user VALID UNTIL 'infinity';
 
--- Add comment for documentation (optional)
-COMMENT ON ROLE amoedo_user IS 'Dedicated user for the Amoedo database';
-
--- Grant database-level privileges (important for Rails)
-GRANT ALL PRIVILEGES ON DATABASE amoedo_app_production TO amoedo_user;
+CREATE DATABASE amoedo_app_production OWNER amoedo_user;
 
 
--- Grant schema permissions
-GRANT ALL PRIVILEGES ON SCHEMA public TO amoedo_user;
+-- #############################################################################
+-- # Part 2: IMPORTANT - MANUALLY CONNECT to 'amoedo_app_production' DATABASE  #
+-- # AS THE SAME SUPERUSER (e.g., 'postgres') BEFORE running the commands below.#
+-- #                                                                           #
+-- # In psql, you would type:                                                  #
+-- # \c amoedo_app_production                                                  #
+-- #                                                                           #
+-- # Your psql prompt should change to indicate connection to                  #
+-- # 'amoedo_app_production' (e.g., postgres@amoedo_app_production=>)          #
+-- #############################################################################
 
--- Set default privileges for future tables
-ALTER DEFAULT PRIVILEGES
-  FOR USER postgres
-  IN SCHEMA public
-  GRANT ALL PRIVILEGES ON TABLES TO amoedo_user;
+-- The following commands MUST be run AFTER connecting to 'amoedo_app_production' as a superuser.
 
--- Set default privileges for future sequences
-ALTER DEFAULT PRIVILEGES
-  FOR USER postgres
-  IN SCHEMA public
-  GRANT ALL PRIVILEGES ON SEQUENCES TO amoedo_user;
+ALTER SCHEMA public OWNER TO amoedo_user;
 
--- Set default privileges for future functions
-ALTER DEFAULT PRIVILEGES
-  FOR USER postgres
-  IN SCHEMA public
-  GRANT ALL PRIVILEGES ON FUNCTIONS TO amoedo_user;
-
+GRANT USAGE ON SCHEMA public TO amoedo_user;
