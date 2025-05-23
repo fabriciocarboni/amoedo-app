@@ -89,3 +89,14 @@ Rails.application.configure do
   # Skip DNS rebinding protection for the default health check endpoint.
   # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 end
+
+config.after_initialize do
+  begin
+    connection = ActiveRecord::Base.connection
+    puts "Connected to PostgreSQL as: #{connection.execute("SELECT current_user").first['current_user']}"
+    puts "Current database: #{connection.execute("SELECT current_database()").first['current_database']}"
+    puts "Current search path: #{connection.execute("SHOW search_path").first['search_path']}"
+  rescue => e
+    puts "Database connection error: #{e.message}"
+  end
+end
