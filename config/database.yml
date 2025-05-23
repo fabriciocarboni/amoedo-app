@@ -52,10 +52,9 @@ production:
   primary: &primary_production
     <<: *default
     database: amoedo_app_production
-    # username: amoedo_app
-    # password: <%= ENV["AMOEDO_APP_DATABASE_PASSWORD"] %>
-    # host: amoedo-db
-    host: stack-db_mariadb #(change me if this project goes to production)
+    username: <%= ENV["AMOEDO_USER"] %>
+    password: <%= ENV["AMOEDO_DB_USER"] %>
+    host: <%= ENV["AMOEDO_DB_HOST"] %> #(change me if this project goes to production)
   cache:
     <<: *primary_production
     database: amoedo_app_production_cache
