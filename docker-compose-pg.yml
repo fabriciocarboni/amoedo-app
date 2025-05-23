@@ -1,0 +1,29 @@
+services:
+  amoedo-db:
+    image: postgres:17
+    container_name: amoedo-pg-db
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: amoedo_app_development 
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - amoedo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    name: amoedo-postgres-data
+
+networks:
+  amoedo-network:
+    name: amoedo-network
+    driver: bridge

@@ -11,7 +11,10 @@
 # It's strongly recommended that you check this file into your version control system.
 
 ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
-  create_table "active_storage_attachments", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+  # These are extensions that must be enabled in order to support this database
+  enable_extension "pg_catalog.plpgsql"
+
+  create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
     t.bigint "record_id", null: false
@@ -21,7 +24,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
     t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
   end
 
-  create_table "active_storage_blobs", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+  create_table "active_storage_blobs", force: :cascade do |t|
     t.string "key", null: false
     t.string "filename", null: false
     t.string "content_type"
@@ -33,13 +36,13 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
     t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
   end
 
-  create_table "active_storage_variant_records", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+  create_table "active_storage_variant_records", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
-  create_table "api_keys", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+  create_table "api_keys", force: :cascade do |t|
     t.string "access_token", null: false
     t.string "client_name", null: false
     t.string "email", null: false
@@ -50,7 +53,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
     t.index ["email"], name: "index_api_keys_on_email", unique: true
   end
 
-  create_table "cobrancas", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+  create_table "cobrancas", force: :cascade do |t|
     t.string "asaas_payment_id"
     t.string "asaas_customer_id"
     t.date "date_created"
@@ -101,7 +104,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
     t.index ["status"], name: "index_cobrancas_on_status"
   end
 
-  create_table "customers", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+  create_table "customers", force: :cascade do |t|
     t.string "asaas_customer_id"
     t.date "date_created"
     t.string "name", null: false
@@ -138,7 +141,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
     t.index ["external_reference"], name: "index_customers_on_external_reference"
   end
 
-  create_table "remessa_santander_headers", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+  create_table "remessa_santander_headers", force: :cascade do |t|
     t.string "codigo_do_registro", limit: 1
     t.string "codigo_da_remessa", limit: 1
     t.string "literal_de_transmissao", limit: 7
@@ -166,7 +169,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
     t.index ["processamento_id"], name: "index_remessa_santander_headers_on_processamento_id"
   end
 
-  create_table "remessa_santander_registros", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+  create_table "remessa_santander_registros", force: :cascade do |t|
     t.bigint "remessa_santander_header_id"
     t.string "codigo_do_registro", limit: 1
     t.string "tipo_de_inscricao_do_beneficiario", limit: 2
@@ -229,7 +232,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
     t.index ["remessa_santander_header_id"], name: "idx_on_remessa_santander_header_id_4776cc7613"
   end
 
-  create_table "remessa_santander_trailers", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+  create_table "remessa_santander_trailers", force: :cascade do |t|
     t.string "codigo_do_registro", limit: 1
     t.string "quantidade_de_registros_no_arquivo", limit: 6
     t.decimal "valor_total_dos_boletos", precision: 11, scale: 2
@@ -241,7 +244,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
     t.index ["processamento_id"], name: "index_remessa_santander_trailers_on_processamento_id"
   end
 
-  create_table "sessions", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+  create_table "sessions", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "ip_address"
     t.string "user_agent"
@@ -250,7 +253,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
-  create_table "short_urls", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+  create_table "short_urls", force: :cascade do |t|
     t.string "token"
     t.string "blob_id"
     t.string "filename"
@@ -261,7 +264,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
     t.index ["token"], name: "index_short_urls_on_token", unique: true
   end
 
-  create_table "users", charset: "utf8mb4", collation: "utf8mb4_uca1400_ai_ci", force: :cascade do |t|
+  create_table "users", force: :cascade do |t|
     t.string "email_address", null: false
     t.string "password_digest", null: false
     t.datetime "created_at", null: false
