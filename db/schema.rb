@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
+ActiveRecord::Schema[8.0].define(version: 2025_05_24_105654) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -173,12 +173,12 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
     t.bigint "remessa_santander_header_id"
     t.string "codigo_do_registro", limit: 1
     t.string "tipo_de_inscricao_do_beneficiario", limit: 2
-    t.string "numero_de_inscricao_do_beneficiario", limit: 14
+    t.bigint "numero_de_inscricao_do_beneficiario"
     t.string "codigo_da_agencia_beneficiario", limit: 4
-    t.string "conta_movimento_beneficiario", limit: 8
+    t.integer "conta_movimento_beneficiario"
     t.string "conta_cobranca_beneficiario", limit: 8
     t.string "identificacao_do_boleto_na_empresa", limit: 25
-    t.string "identificacao_do_boleto_no_banco", limit: 8
+    t.integer "identificacao_do_boleto_no_banco"
     t.string "data_do_desconto_2", limit: 6
     t.string "reservado_uso_banco_1", limit: 1
     t.string "codigo_de_multa", limit: 1
@@ -205,7 +205,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
     t.decimal "percentual_do_iof_a_ser_recolhido", precision: 13, scale: 5
     t.decimal "valor_do_abatimento_ou_valor_do_segundo_desconto", precision: 13, scale: 2
     t.string "tipo_de_inscricao_do_pagador", limit: 2
-    t.string "numero_de_inscricao_do_pagador", limit: 14
+    t.bigint "numero_de_inscricao_do_pagador"
     t.string "nome_do_pagador", limit: 40
     t.string "endereco_do_pagador", limit: 40
     t.string "bairro_do_pagador", limit: 12
@@ -227,7 +227,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_22_151930) do
     t.integer "processamento_id", null: false
     t.string "asaas_payment_id"
     t.index ["asaas_payment_id"], name: "index_remessa_santander_registros_on_asaas_payment_id"
+    t.index ["conta_movimento_beneficiario"], name: "idx_remessa_santander_conta_movimento"
     t.index ["identificacao_do_boleto_na_empresa"], name: "index_remessa_santander_registros_on_id_boleto"
+    t.index ["identificacao_do_boleto_no_banco"], name: "idx_on_identificacao_do_boleto_no_banco_fe4c962f46", unique: true
+    t.index ["numero_de_inscricao_do_beneficiario"], name: "idx_remessa_santander_num_inscricao_benef"
+    t.index ["numero_de_inscricao_do_pagador"], name: "idx_on_numero_de_inscricao_do_pagador_8a2f2cb3d8"
     t.index ["processamento_id"], name: "index_remessa_santander_registros_on_processamento_id"
     t.index ["remessa_santander_header_id"], name: "idx_on_remessa_santander_header_id_4776cc7613"
   end
