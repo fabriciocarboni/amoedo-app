@@ -17,9 +17,11 @@ module Santander
       trailer_data = process_trailer(all_lines.last)
       registro_data = process_registros(header_data, all_lines[1...-1])
 
+      bulk_result = nil
       ActiveRecord::Base.transaction do
         create_remessa_header(header_data)
-        bulk_insert_registros(registro_data)
+        # bulk_insert_registros(registro_data)
+        bulk_result = bulk_insert_registros(registro_data)
         create_remessa_trailer(trailer_data)
       end
 
@@ -28,10 +30,10 @@ module Santander
       # cobrancas in asaas.
       # create_cobrancas(registro_data)
 
-      { success: true, processamento_id: @processamento_id }
+      { success: true, processamento_id: @processamento_id, skipped_registros: bulk_result[:skipped] }
     rescue StandardError => e
       Rails.logger.error "[#{File.basename(__FILE__)}] Error processing remessa file: #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
+      # Rails.logger.error e.backtrace.join("\n")
       { success: false, error: "Failed to process remessa file: #{e.message}" }
     end
 
@@ -51,40 +53,108 @@ module Santander
       end
     end
 
+    # def create_remessa_header(header_data)
+    #   @remessa_header = RemessaSantanderHeader.create!(
+    #     header_data.merge(
+    #       nome_arquivo_remessa: @original_filename,
+    #       processamento_id: @processamento_id
+    #     )
+    #   )
+    #   Rails.logger.info "[#{File.basename(__FILE__)}] Inserted RemessaHeader with ID: #{@remessa_header.id}"
+    #   @remessa_header
+    # end
+    #
     def create_remessa_header(header_data)
-      @remessa_header = RemessaSantanderHeader.create!(
-        header_data.merge(
-          nome_arquivo_remessa: @original_filename,
-          processamento_id: @processamento_id
+      @remessa_header = RemessaSantanderHeader.find_or_create_by(
+        codigo_de_transmissao: header_data["codigo_de_transmissao"]
+      ) do |header|
+        header.assign_attributes(
+          header_data.merge(
+            nome_arquivo_remessa: @original_filename,
+            processamento_id: @processamento_id
+          )
         )
-      )
-      Rails.logger.info "[#{File.basename(__FILE__)}] Inserted RemessaHeader with ID: #{@remessa_header.id}"
+      end
+
+      if @remessa_header.persisted? && @remessa_header.previously_new_record?
+        Rails.logger.info "[#{File.basename(__FILE__)}] Inserted new RemessaHeader with ID: #{@remessa_header.id}"
+      else
+        Rails.logger.info "[#{File.basename(__FILE__)}] Found existing RemessaHeader with ID: #{@remessa_header.id}"
+      end
+
       @remessa_header
     end
+    #
 
+    # def bulk_insert_registros(registro_data)
+    #   inserted_count = RemessaSantanderRegistro.insert_all!(
+    #     registro_data.map do |data|
+    #       data.merge(
+    #         remessa_santander_header_id: @remessa_header.id,
+    #         nome_arquivo_remessa: @original_filename,
+    #         processamento_id: @processamento_id
+    #       )
+    #     end
+    #   ).count
+    #   Rails.logger.info "[#{File.basename(__FILE__)}] Bulk inserted #{inserted_count} RemessaRegistro records"
+    # end
     def bulk_insert_registros(registro_data)
-      inserted_count = RemessaSantanderRegistro.insert_all!(
+      result = RemessaSantanderRegistro.insert_all(
         registro_data.map do |data|
           data.merge(
             remessa_santander_header_id: @remessa_header.id,
             nome_arquivo_remessa: @original_filename,
             processamento_id: @processamento_id
           )
-        end
-      ).count
-      Rails.logger.info "[#{File.basename(__FILE__)}] Bulk inserted #{inserted_count} RemessaRegistro records"
+        end,
+        unique_by: :identificacao_do_boleto_no_banco
+      )
+        inserted_count = result.length
+        skipped_count = registro_data.size - inserted_count
+        Rails.logger.info "[#{File.basename(__FILE__)}] Bulk inserted #{inserted_count} RemessaRegistro records, skipped #{skipped_count} duplicates"
+        { inserted: inserted_count, skipped: skipped_count }
     end
 
     def create_remessa_trailer(trailer_data)
-      @remessa_trailer = RemessaSantanderTrailer.create!(
-        trailer_data.merge(
-          nome_arquivo_remessa: @original_filename,
-          processamento_id: @processamento_id
+      # First check if a trailer already exists for this header
+      existing_trailer = RemessaSantanderTrailer.find_by(remessa_santander_header_id: @remessa_header.id)
+
+      if existing_trailer
+        # Trailer already exists for this header, so it has been processed before
+        @remessa_trailer = existing_trailer
+        Rails.logger.info "[#{File.basename(__FILE__)}] Found existing RemessaTrailer with ID: #{@remessa_trailer.id} for header ID: #{@remessa_header.id}. Skipping processing."
+        @remessa_trailer
+      else
+        # No trailer exists for this header, create a new one
+        @remessa_trailer = RemessaSantanderTrailer.new(
+          trailer_data.merge(
+            remessa_santander_header_id: @remessa_header.id,
+            nome_arquivo_remessa: @original_filename,
+            processamento_id: @processamento_id
+          )
         )
-      )
-      Rails.logger.info "[#{File.basename(__FILE__)}] Inserted RemessaTrailer with ID: #{@remessa_trailer.id}"
-      @remessa_trailer
+
+        if @remessa_trailer.save
+          Rails.logger.info "[#{File.basename(__FILE__)}] Inserted new RemessaTrailer with ID: #{@remessa_trailer.id} for header ID: #{@remessa_header.id}"
+        else
+          Rails.logger.error "[#{File.basename(__FILE__)}] Failed to create RemessaTrailer: #{@remessa_trailer.errors.full_messages.join(', ')}"
+        end
+
+        @remessa_trailer
+      end
     end
+
+    # def create_remessa_trailer(trailer_data)
+    #   @remessa_trailer = RemessaSantanderTrailer.create!(
+    #     trailer_data.merge(
+    #       remessa_santander_header_id: @remessa_header.id,
+    #       nome_arquivo_remessa: @original_filename,
+    #       processamento_id: @processamento_id
+    #     )
+    #   )
+    #   Rails.logger.info "[#{File.basename(__FILE__)}] Inserted RemessaTrailer with ID: #{@remessa_trailer.id}"
+    #   @remessa_trailer
+    # end
 
     # def create_cobrancas(cobrancas)
     #   puts "Entering create_cobrancas method"

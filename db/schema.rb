@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_05_24_105654) do
+ActiveRecord::Schema[8.0].define(version: 2025_05_25_154630) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -166,6 +166,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_24_105654) do
     t.datetime "updated_at", null: false
     t.string "nome_arquivo_remessa", null: false
     t.integer "processamento_id", null: false
+    t.index ["codigo_de_transmissao"], name: "idx_remessa_headers_codigo_transmissao", unique: true
     t.index ["processamento_id"], name: "index_remessa_santander_headers_on_processamento_id"
   end
 
@@ -245,7 +246,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_24_105654) do
     t.integer "processamento_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "remessa_santander_header_id"
     t.index ["processamento_id"], name: "index_remessa_santander_trailers_on_processamento_id"
+    t.index ["remessa_santander_header_id"], name: "idx_on_remessa_santander_header_id_4776"
   end
 
   create_table "sessions", force: :cascade do |t|
@@ -280,5 +283,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_24_105654) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "cobrancas", "customers"
   add_foreign_key "remessa_santander_registros", "remessa_santander_headers"
+  add_foreign_key "remessa_santander_trailers", "remessa_santander_headers"
   add_foreign_key "sessions", "users"
 end
