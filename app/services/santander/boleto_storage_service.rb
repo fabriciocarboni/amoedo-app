@@ -6,6 +6,7 @@ require "uri"      # For URI.parse
 
 module Santander
   class BoletoStorageService
+    class StorageError < StandardError; end
     # Directory to store downloaded boletos temporarily before ActiveStorage upload
     TEMP_BOLETOS_DIR = Rails.root.join("storage", "boletos", "santander")
 
@@ -134,7 +135,7 @@ module Santander
         Rails.logger.error("Message: #{e.message}")
         Rails.logger.error("Filename: #{@unique_filename_with_ext}")
         Rails.logger.error(e.backtrace.join("\n"))
-        raise "Failed to store Santander boleto PDF in ActiveStorage: #{e.message}"
+        raise StorageError, "Failed to store Santander boleto PDF in ActiveStorage: #{e.message}"
       end
     end
 
@@ -157,8 +158,7 @@ module Santander
         Rails.logger.error(error.backtrace.join("\n"))
       end
 
-      # Re-raise a more specific or generic error
-      raise "Error during Santander boleto PDF download (#{type}): #{error.message}"
+      raise StorageError, "Error during Santander boleto PDF download (#{type}): #{error.message}"
     end
   end
 end
