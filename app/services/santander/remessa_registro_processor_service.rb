@@ -39,6 +39,11 @@ module Santander
       if value.nil? || value.empty?
         raise ParseError, "Missing field #{field} at position #{details["start"]}"
       end
+      # Force encoding if needed
+      unless value.valid_encoding?
+        Rails.logger.debug "Invalid encoding for field #{field}: #{value.bytes.inspect}"
+        value = value.encode("UTF-8", "ISO-8859-1", invalid: :replace, undef: :replace, replace: "")
+      end
       value
     end
 
