@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_05_25_154630) do
+ActiveRecord::Schema[8.0].define(version: 2025_05_26_110549) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -166,7 +166,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_05_25_154630) do
     t.datetime "updated_at", null: false
     t.string "nome_arquivo_remessa", null: false
     t.integer "processamento_id", null: false
-    t.index ["codigo_de_transmissao"], name: "idx_remessa_headers_codigo_transmissao", unique: true
+    t.index ["nome_arquivo_remessa"], name: "idx_remessa_headers_nome_arquivo_remessa", unique: true
     t.index ["processamento_id"], name: "index_remessa_santander_headers_on_processamento_id"
   end
 

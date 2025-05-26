@@ -10,6 +10,7 @@ module Santander
       @valor_total_mismatch = flash[:valor_total_mismatch]
       @soma_registros = flash[:soma_registros]
       @skip_registros = flash[:skip_registros]
+      @already_processed = flash[:already_processed]
     end
 
     def create
@@ -44,7 +45,7 @@ module Santander
           flash[:valor_total_dos_boletos] = trailer.valor_total_dos_boletos
         end
 
-        # Use flash.now for Turbo Stream responses
+        # Use flash for Turbo Stream responses
         flash[:show_success_modal] = true
         flash[:nome_arquivo_remessa] = original_filename
         flash[:registros_count] = registros.count
@@ -56,7 +57,31 @@ module Santander
         Rails.logger.debug "Setting flash[:skip_registros] to #{result[:skipped_registros]}"
         Rails.logger.debug "result.inspect #{result.inspect}"
         redirect_to new_santander_remessa_upload_path
+      elsif result[:already_processed]
+        # Caso especial para arquivos já processados
+        flash[:already_processed] = true
+        flash[:nome_arquivo_remessa] = original_filename
+        flash[:alert] = result[:error]
+
+        # Se tiver informações adicionais sobre o processamento anterior, podemos buscar
+        header = RemessaSantanderHeader.find_by(nome_arquivo_remessa: original_filename)
+        if header.present?
+          processamento_id = header.processamento_id
+          registros = RemessaSantanderRegistro.where(processamento_id: processamento_id)
+          flash[:registros_count] = registros.count if registros.any?
+
+          # Opcionalmente, buscar mais informações do processamento anterior
+          trailer = RemessaSantanderTrailer.find_by(processamento_id: processamento_id)
+          if trailer.present?
+            flash[:valor_total_dos_boletos] = trailer.valor_total_dos_boletos
+          end
+        end
+
+        # Mostrar modal com informações do arquivo já processado
+        flash[:show_success_modal] = true
+        redirect_to new_santander_remessa_upload_path
       else
+        # Erro genérico no processamento
         flash[:alert] = "Erro ao processar arquivo: #{result[:error]}"
         redirect_to new_santander_remessa_upload_path
       end

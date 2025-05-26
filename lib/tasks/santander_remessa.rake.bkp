@@ -1,0 +1,210 @@
+# lib/tasks/santander_remessa.rake
+namespace :santander do
+  desc "Create directories for Santander remessa file processing"
+  task setup_directories: :environment do
+    base_dir = Rails.root.join("storage", "santander", "remessa")
+
+    # Create the directory structure
+    dirs = [
+      base_dir.join("pending"),
+      base_dir.join("processed"),
+      base_dir.join("failed")
+    ]
+
+    dirs.each do |dir|
+      unless Dir.exist?(dir)
+        FileUtils.mkdir_p(dir)
+        puts "Created directory: #{dir}"
+      else
+        puts "Directory already exists: #{dir}"
+      end
+    end
+
+    puts "\nDirectories are set up. You can now place remessa files in: #{dirs[0]}"
+  end
+
+  desc "Process Santander remessa files from the pending directory in parallel"
+  task :process_remessa_files, [ :workers ] => :environment do |t, args|
+    # Check if the parallel gem is installed
+    begin
+      require "parallel"
+    rescue LoadError
+      puts "Error: The 'parallel' gem is required for parallel processing."
+      puts "Please add it to your Gemfile and run 'bundle install':"
+      puts "  gem 'parallel'"
+      exit 1
+    end
+
+    # Check if the concurrent-ruby gem is installed
+    begin
+      require "concurrent"
+    rescue LoadError
+      puts "Error: The 'concurrent-ruby' gem is required for parallel processing."
+      puts "Please add it to your Gemfile and run 'bundle install':"
+      puts "  gem 'concurrent-ruby'"
+      exit 1
+    end
+
+    # Number of parallel workers (default: 4)
+    workers = (args[:workers] || 4).to_i
+    puts "Using #{workers} parallel workers"
+
+    # Define directories
+    base_dir = Rails.root.join("storage", "santander", "remessa")
+    pending_dir = base_dir.join("pending")
+    processed_dir = base_dir.join("processed")
+    failed_dir = base_dir.join("failed")
+
+    # Create directories if they don't exist
+    [ pending_dir, processed_dir, failed_dir ].each do |dir|
+      FileUtils.mkdir_p(dir) unless Dir.exist?(dir)
+    end
+
+    # Clean up Zone.Identifier files before processing
+    puts "Checking for and removing Zone.Identifier files..."
+    zone_files = Dir.glob(File.join(pending_dir, "*Zone.Identifier*"))
+    if zone_files.any?
+      zone_files.each do |file|
+        File.delete(file)
+        puts "Deleted metadata file: #{File.basename(file)}"
+      end
+      puts "Removed #{zone_files.count} Zone.Identifier files"
+    else
+      puts "No Zone.Identifier files found"
+    end
+
+    # Get all files in the pending directory, also excluding hidden files
+    files = Dir.glob(File.join(pending_dir, "*")).reject do |file|
+      File.basename(file).start_with?(".") # Exclude hidden files
+    end
+
+    if files.empty?
+      puts "No files found in pending directory: #{pending_dir}"
+      puts "Place files in this directory and run the task again."
+      exit 0
+    end
+
+    puts "Found #{files.count} files to process"
+
+    # Create thread-safe counters for results
+    results = {
+      success: Concurrent::AtomicFixnum.new(0),
+      failed: Concurrent::AtomicFixnum.new(0),
+      skipped: Concurrent::AtomicFixnum.new(0),
+      skipped_registros: Concurrent::AtomicFixnum.new(0),
+      errors: Concurrent::Array.new,
+      mutex: Mutex.new  # For thread-safe file operations
+    }
+
+    # Process files in parallel
+    Parallel.each(files, in_processes: workers) do |file_path|
+      original_filename = File.basename(file_path)
+      timestamp = Time.now.strftime("%Y%m%d%H%M%S")
+
+      # Thread-safe output
+      results[:mutex].synchronize do
+        puts "[#{results[:success].value + results[:failed].value + results[:skipped].value + 1}/#{files.count}] Processing file: #{original_filename}"
+      end
+
+      # Skip processing if the file doesn't look like a valid remessa file
+      unless valid_remessa_file?(file_path)
+        results[:skipped].increment
+
+        results[:mutex].synchronize do
+          puts "  ⚠ Skipping invalid file format: #{original_filename}"
+
+          # Move to failed directory with timestamp
+          target_file = failed_dir.join("#{timestamp}_#{original_filename}")
+          FileUtils.mv(file_path, target_file)
+          puts "  → Moved to failed directory (invalid format)"
+        end
+        next
+      end
+
+      begin
+        processor = Santander::RemessaProcessorService.new(file_path, original_filename)
+        result = processor.process
+
+        if result[:success]
+          results[:success].increment
+          # FIX: Use increment instead of add
+          if result[:skipped_registros] && result[:skipped_registros] > 0
+            results[:skipped_registros].increment(result[:skipped_registros])
+          end
+
+          results[:mutex].synchronize do
+            puts "  ✓ Successfully processed #{original_filename} with ID: #{result[:processamento_id]}"
+            puts "    Skipped registros: #{result[:skipped_registros]}" if result[:skipped_registros] && result[:skipped_registros] > 0
+
+            # Move to processed directory with timestamp to avoid name conflicts
+            target_file = processed_dir.join("#{timestamp}_#{original_filename}")
+            FileUtils.mv(file_path, target_file)
+            puts "  → Moved to processed directory"
+          end
+        else
+          results[:failed].increment
+          results[:errors] << { file: original_filename, error: result[:error] }
+
+          results[:mutex].synchronize do
+            puts "  ✗ Failed to process #{original_filename}: #{result[:error]}"
+
+            # Move to failed directory with timestamp
+            target_file = failed_dir.join("#{timestamp}_#{original_filename}")
+            FileUtils.mv(file_path, target_file)
+            puts "  → Moved to failed directory"
+          end
+        end
+      rescue => e
+        results[:failed].increment
+        results[:errors] << { file: original_filename, error: e.message }
+
+        results[:mutex].synchronize do
+          puts "  ✗ Exception while processing #{original_filename}: #{e.message}"
+
+          # Move to failed directory with timestamp
+          target_file = failed_dir.join("#{timestamp}_#{original_filename}")
+          FileUtils.mv(file_path, target_file)
+          puts "  → Moved to failed directory"
+        end
+      end
+    end
+
+    # Print summary
+    puts "\n=== Processing Summary ==="
+    puts "Total files found: #{files.count}"
+    puts "Successfully processed: #{results[:success].value}"
+    puts "Failed: #{results[:failed].value}"
+    puts "Skipped (invalid format): #{results[:skipped].value}"
+    puts "Total skipped registros: #{results[:skipped_registros].value}"
+
+    if results[:failed].value > 0
+      puts "\nErrors:"
+      results[:errors].each do |error|
+        puts "- #{error[:file]}: #{error[:error]}"
+      end
+    end
+  end
+
+  private
+
+  def valid_remessa_file?(file_path)
+    begin
+      # Basic validation - check if file has expected content
+      first_line = File.open(file_path, &:readline).strip
+
+      # Check if the first line has the expected length and format for Santander remessa
+      # Adjust these criteria based on your specific remessa file format
+      return false if first_line.length < 400  # Santander remessa lines are typically 400 chars
+      return false unless first_line.start_with?("0")  # Header line starts with 0
+
+      # Additional validation could check for specific positions in the header
+      # For example, checking for "REMESSA" text at a specific position
+      return false unless first_line[2..8] == "REMESSA"
+
+      true
+    rescue => e
+      # If we can't read the file or any other error occurs, it's not valid
+      false
+    end
+  end
+end

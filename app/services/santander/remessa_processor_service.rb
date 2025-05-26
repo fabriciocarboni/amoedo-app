@@ -12,7 +12,19 @@ module Santander
 
     # Process the file
     def process
-      all_lines = File.readlines(@file_path)
+      begin
+        # Verificar se o arquivo já foi processado antes
+        if RemessaSantanderHeader.exists?(nome_arquivo_remessa: @original_filename)
+          return {
+            success: false,
+            error: "Este arquivo de remessa já foi processado anteriormente.",
+            already_processed: true
+          }
+        end
+      end
+
+
+      all_lines = File.readlines(@file_path, encoding: "ISO-8859-1:UTF-8")
       header_data = process_header(all_lines.first)
       trailer_data = process_trailer(all_lines.last)
       registro_data = process_registros(header_data, all_lines[1...-1])
@@ -53,20 +65,17 @@ module Santander
       end
     end
 
-    # def create_remessa_header(header_data)
-    #   @remessa_header = RemessaSantanderHeader.create!(
-    #     header_data.merge(
-    #       nome_arquivo_remessa: @original_filename,
-    #       processamento_id: @processamento_id
-    #     )
-    #   )
-    #   Rails.logger.info "[#{File.basename(__FILE__)}] Inserted RemessaHeader with ID: #{@remessa_header.id}"
-    #   @remessa_header
-    # end
-    #
     def create_remessa_header(header_data)
+      # Garantir que nome_arquivo_remessa não seja nil
+      arquivo_nome = header_data["nome_arquivo_remessa"].presence || @original_filename
+
+      if arquivo_nome.nil?
+        Rails.logger.error "[#{File.basename(__FILE__)}] Nome do arquivo de remessa não pode ser nulo"
+        raise ArgumentError, "Nome do arquivo de remessa não pode ser nulo"
+      end
+
       @remessa_header = RemessaSantanderHeader.find_or_create_by(
-        codigo_de_transmissao: header_data["codigo_de_transmissao"]
+        nome_arquivo_remessa: arquivo_nome
       ) do |header|
         header.assign_attributes(
           header_data.merge(
@@ -77,27 +86,14 @@ module Santander
       end
 
       if @remessa_header.persisted? && @remessa_header.previously_new_record?
-        Rails.logger.info "[#{File.basename(__FILE__)}] Inserted new RemessaHeader with ID: #{@remessa_header.id}"
+        Rails.logger.info "[#{File.basename(__FILE__)}] Inserted new RemessaHeader with nome_arquivo_remessa: #{@remessa_header.nome_arquivo_remessa}"
       else
-        Rails.logger.info "[#{File.basename(__FILE__)}] Found existing RemessaHeader with ID: #{@remessa_header.id}"
+        Rails.logger.info "[#{File.basename(__FILE__)}] Found existing RemessaHeader with nome_arquivo_remessa: #{@remessa_header.nome_arquivo_remessa}"
       end
 
       @remessa_header
     end
-    #
 
-    # def bulk_insert_registros(registro_data)
-    #   inserted_count = RemessaSantanderRegistro.insert_all!(
-    #     registro_data.map do |data|
-    #       data.merge(
-    #         remessa_santander_header_id: @remessa_header.id,
-    #         nome_arquivo_remessa: @original_filename,
-    #         processamento_id: @processamento_id
-    #       )
-    #     end
-    #   ).count
-    #   Rails.logger.info "[#{File.basename(__FILE__)}] Bulk inserted #{inserted_count} RemessaRegistro records"
-    # end
     def bulk_insert_registros(registro_data)
       result = RemessaSantanderRegistro.insert_all(
         registro_data.map do |data|
@@ -143,18 +139,6 @@ module Santander
         @remessa_trailer
       end
     end
-
-    # def create_remessa_trailer(trailer_data)
-    #   @remessa_trailer = RemessaSantanderTrailer.create!(
-    #     trailer_data.merge(
-    #       remessa_santander_header_id: @remessa_header.id,
-    #       nome_arquivo_remessa: @original_filename,
-    #       processamento_id: @processamento_id
-    #     )
-    #   )
-    #   Rails.logger.info "[#{File.basename(__FILE__)}] Inserted RemessaTrailer with ID: #{@remessa_trailer.id}"
-    #   @remessa_trailer
-    # end
 
     # def create_cobrancas(cobrancas)
     #   puts "Entering create_cobrancas method"
