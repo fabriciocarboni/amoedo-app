@@ -23,8 +23,6 @@ Rails.application.routes.draw do
         get "santander/cobrancas/listar_cobrancas_cliente", to: "santander_cobrancas#listar_cobrancas_cliente"
       end
   end
-  # Route for downloading boletos
-  # get "api/v1/boletos/:filename", to: "api/v1/boletos#download", as: "download_boleto"
 
   namespace :santander do
     resources :remessa_uploads, only: [ :new, :create ]
