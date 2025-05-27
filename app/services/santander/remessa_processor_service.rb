@@ -23,7 +23,6 @@ module Santander
         end
       end
 
-
       all_lines = File.readlines(@file_path, encoding: "ISO-8859-1:UTF-8")
       header_data = process_header(all_lines.first)
       trailer_data = process_trailer(all_lines.last)

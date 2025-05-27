@@ -2,140 +2,251 @@
 module Api
   module Santander
     class FetchCobrancaService
-      # Removed httparty as it's no longer used directly in this service
-      # require "httparty"
       require "tempfile"
       require "openssl"
       require "open-uri"
       require "fileutils"
-      require "net/http" # Now definitely needed
-      require "uri"     # For URI.parse
-      require "json"    # For JSON.parse and .to_json
+      require "net/http"
+      require "uri"
+      require "json"
       require "date"
+      require_dependency "santander/boleto_storage_service"
 
-      # Directory to store downloaded boletos
+      # Directory to store downloaded boletos (Potentially used by BoletoStorageService)
       BOLETOS_DIR = Rails.root.join("storage", "boletos")
 
+      def self.get_cobrancas(cpf_cnpj_raw)
+        start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) # Record start time
 
-      def self.get_cobrancas(cpf_cnpj)
-        if cpf_cnpj.blank?
+        if cpf_cnpj_raw.blank?
+          # Using ArgumentError for programmer error (blank input not expected path)
           raise ArgumentError, "CPF/CNPJ cannot be blank"
         end
 
-        clean_cpfcnpj = clean_cpf_cnpj(cpf_cnpj)
-        # puts("clean_cpfcnpj: #{clean_cpfcnpj}")
-        # exit
+        clean_cpfcnpj = clean_cpf_cnpj(cpf_cnpj_raw)
+        clients = RemessaSantanderRegistro.where(numero_de_inscricao_do_pagador: clean_cpfcnpj)
 
-        client = RemessaSantanderRegistro.find_by(numero_de_inscricao_do_pagador: clean_cpfcnpj)
-
-        unless client
-          return { status: "customer_notfound", msg: "Cliente não encontrado com o CPF/CNPJ informado." }
+        unless clients.exists?
+          end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          duration = (end_time - start_time).round(2)
+          return {
+            status: "customer_notfound",
+            msg: "Cliente não encontrado com o CPF/CNPJ informado.",
+            tempo_de_execucao: "#{duration} seconds"
+          }
         end
 
-        unless client.identificacao_do_boleto_no_banco.present?
-             Rails.logger.info("\n[#{File.basename(__FILE__)}] Client found for CPF/CNPJ #{cpf_cnpj}, but no 'identificacao_do_boleto_no_banco'. Client ID: #{client.id}")
-             return { status: "customer_noslips", msg: "Dados do boleto incompletos para o cliente.", data: [] }
-        end
+        client_for_beneficiary_info = clients.find { |c| c.numero_de_inscricao_do_beneficiario.present? }
 
-        conta_movimento = client.conta_movimento_beneficiario
-        identificacao_boleto = client.identificacao_do_boleto_no_banco
-        inscricao_beneficiario = client.numero_de_inscricao_do_beneficiario
-        raw_vencimento_string = client.data_de_vencimento_do_boleto
-
-        # --- PARSE THE DATE STRING ---
-        begin
-          # Assuming DDMMYY format for "150625"
-          # Date.strptime will raise ArgumentError if format doesn't match
-          parsed_vencimento_date = Date.strptime(raw_vencimento_string, "%d%m%y")
-        rescue ArgumentError => e
-          Rails.logger.error("\n[#{File.basename(__FILE__)}] Failed to parse data_de_vencimento_do_boleto '#{raw_vencimento_string}': #{e.message}")
-          # Handle this error appropriately. Maybe return an error, or use a default/nil date.
-          # For now, let's re-raise or return an error status, as a valid filename is important.
-          return { status: "error_invalid_date", msg: "Data de vencimento inválida no registro do cliente: #{raw_vencimento_string}" }
+        unless client_for_beneficiary_info
+          log_msg = "[#{File.basename(__FILE__)}] No client record found with 'numero_de_inscricao_do_beneficiario' for CPF/CNPJ #{clean_cpfcnpj}. Client IDs: #{clients.map(&:id).join(', ')}"
+          Rails.logger.warn("\n#{log_msg}")
+          end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          duration = (end_time - start_time).round(2)
+          return {
+            status: "error_configuration",
+            msg: "Dados de configuração do beneficiário ausentes para este cliente.",
+            tempo_de_execucao: "#{duration} seconds"
+          }
         end
-        # --- END PARSE THE DATE STRING ---
+        inscricao_beneficiario = client_for_beneficiary_info.numero_de_inscricao_do_beneficiario
 
         subsidiary_key = HttpClientHelper.determine_subsidiary_key(inscricao_beneficiario)
-        # We need credentials for the app_key (client_id) and for the PFX file for Net::HTTP
-        credentials = HttpClientHelper.client_credentials_for(subsidiary_key)
-        HttpClientHelper.log_credentials_status(subsidiary_key, credentials)
+        credentials = HttpClientHelper.client_credentials_for(subsidiary_key) # Can raise ArgumentError
+        HttpClientHelper.log_credentials_status(subsidiary_key, credentials) # Assumes it handles nil credentials gracefully if applicable
 
+        token = nil
         begin
-          token = AuthService.fetch_token(subsidiary_key) # This now uses Net::HTTP
-
-          boleto_response = get_boleto_link(
-            token,
-            subsidiary_key, # Needed for PFX loading
-            credentials[:client_id], # This is the app_key
-            credentials[:pfx_path], # Pass PFX path
-            credentials[:pfx_password], # Pass PFX password
-            conta_movimento,
-            identificacao_boleto,
-            cpf_cnpj
-          )
-
-          santander_link = boleto_response["link"]
-          unless santander_link
-            Rails.logger.error("\n[#{File.basename(__FILE__)}] Boleto link not found in response for CPF/CNPJ #{cpf_cnpj}. Response: #{boleto_response}")
-            return {
-              status: "client_noslips",
-              msg: "Não foi possível obter o link do boleto. Verifique os dados ou tente novamente mais tarde."
-            }
-          end
-
-          pdf_filename = "#{client.nome_do_pagador.parameterize}_#{parsed_vencimento_date.strftime('%Y%m%d')}.pdf"
-
-          storage_service = ::Santander::BoletoStorageService.new(santander_link, pdf_filename)
-          storage_result = storage_service.call # This will raise an error on failure
-
-          # Format the parsed_vencimento_date for the response
-          formatted_vencimento = parsed_vencimento_date.strftime("%d/%m/%Y") # DD/MM/YYYY
-
-          formatted_valor = ActionController::Base.helpers.number_to_currency(
-            client.valor_nominal_do_boleto,
-            unit: "R$",
-            separator: ",",
-            delimiter: "."
-          )
-
-          {
-            status: "client_slips",
-            dados: {
-              nome_client: client.nome_do_pagador,
-              cpf_cnpj: cpf_cnpj,
-              vencimento: formatted_vencimento, # Use the formatted string
-              valor: formatted_valor,
-              nosso_numero: client.identificacao_do_boleto_no_banco ,
-              boleto_url: storage_result[:active_storage_url] # Get URL from service result
-            }
+          token = AuthService.fetch_token(subsidiary_key)
+          Rails.logger.info("\n[#{File.basename(__FILE__)}] ########### Token fetched successfully for subsidiary #{subsidiary_key} (CPF/CNPJ #{clean_cpfcnpj})")
+        rescue ArgumentError => e # Configuration errors from AuthService or HttpClientHelper
+          Rails.logger.error("\n[#{File.basename(__FILE__)}] Configuration error fetching token for subsidiary #{subsidiary_key} (CPF/CNPJ #{clean_cpfcnpj}): #{e.message}")
+          end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          duration = (end_time - start_time).round(2)
+          return {
+            status: "error_configuration",
+            msg: "Erro de configuração interna ao obter token. Contate o suporte.",
+            tempo_de_execucao: "#{duration} seconds" # Add here too
           }
-        rescue ArgumentError => e
-          Rails.logger.error("\n[#{File.basename(__FILE__)}] Configuration error in #{self.name}##{__method__}: #{e.message}")
-          { status: "error_configuration", msg: "Erro de configuração interna. Contate o suporte." }
-        # Catch specific network/SSL errors that might bubble up from AuthService or get_boleto_link
         rescue Timeout::Error, Errno::EINVAL, Errno::ECONNRESET, Errno::ECONNREFUSED, EOFError,
                Net::HTTPBadResponse, Net::HTTPHeaderSyntaxError, Net::ProtocolError, OpenSSL::SSL::SSLError => e
-          Rails.logger.error("\n[#{File.basename(__FILE__)}] Network/SSL communication error in #{self.name}##{__method__} for CPF/CNPJ #{cpf_cnpj}: #{e.class} - #{e.message}")
-          Rails.logger.error(e.backtrace.join("\n"))
-          { status: "error_communication", msg: "Erro de comunicação com o banco. Tente novamente mais tarde." }
+          Rails.logger.error("\n[#{File.basename(__FILE__)}] Network/SSL error fetching token for subsidiary #{subsidiary_key} (CPF/CNPJ #{clean_cpfcnpj}): #{e.class} - #{e.message}\n#{e.backtrace.join("\n")}")
+          end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          duration = (end_time - start_time).round(2)
+          return {
+            status: "error_communication",
+            msg: "Erro de comunicação com o banco ao obter token. Tente novamente mais tarde.",
+            tempo_de_execucao: "#{duration} seconds"
+          }
         rescue StandardError => e
-          Rails.logger.error("\n[#{File.basename(__FILE__)}] Unexpected error in #{self.name}##{__method__} for CPF/CNPJ #{cpf_cnpj}: #{e.message}")
-          Rails.logger.error(e.backtrace.join("\n"))
-          msg = "Não foi encontrado boleto para o cpf_cnpj informado. Entrar em contato com o suporte financeiro."
-          msg += " Este boleto pode estar cancelado ou liquidado." if e.message.match?(/Failed to get boleto link/i)
-          { status: "client_noslips_error", msg: msg }
+          Rails.logger.error("\n[#{File.basename(__FILE__)}] Unexpected error fetching token for subsidiary #{subsidiary_key} (CPF/CNPJ #{clean_cpfcnpj}): #{e.message}\n#{e.backtrace.join("\n")}")
+          end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          duration = (end_time - start_time).round(2)
+          return {
+            status: "error_unknown",
+            msg: "Erro desconhecido ao obter token. Contate o suporte.",
+            tempo_de_execucao: "#{duration} seconds" # Add here too
+          }
         end
+
+        processed_boletos_list = []
+        processed_count = 0
+        error_count = 0
+
+        clients.each_with_index do |client_record, index|
+          Rails.logger.info("\n[#{File.basename(__FILE__)}] Processing boleto record ##{index + 1}/#{clients.size} for client ID #{client_record.id}, CPF/CNPJ #{clean_cpfcnpj}")
+
+          unless client_record.identificacao_do_boleto_no_banco.present?
+            Rails.logger.info("\n[#{File.basename(__FILE__)}] Client ID #{client_record.id} (CPF/CNPJ #{clean_cpfcnpj}) has no 'identificacao_do_boleto_no_banco'. Skipping.")
+            error_count += 1
+            next
+          end
+
+          begin
+            boleto_data = process_single_boleto_record(
+              client_record,
+              token,
+              subsidiary_key,
+              credentials,
+              clean_cpfcnpj # Pass the cleaned CPF/CNPJ for API body
+            )
+            processed_boletos_list << boleto_data
+            processed_count += 1
+          rescue ArgumentError => e # Date parsing or other argument errors within process_single_boleto_record
+            Rails.logger.error("\n[#{File.basename(__FILE__)}] Argument error processing boleto for client ID #{client_record.id} (CPF/CNPJ #{clean_cpfcnpj}, NossoNumero #{client_record.identificacao_do_boleto_no_banco}): #{e.message}")
+            error_count += 1
+          rescue ::Santander::BoletoStorageService::StorageError => e # Custom error from storage service
+            Rails.logger.error("\n[#{File.basename(__FILE__)}] Storage error for client ID #{client_record.id} (CPF/CNPJ #{clean_cpfcnpj}, NossoNumero #{client_record.identificacao_do_boleto_no_banco}): #{e.message}")
+            error_count += 1
+          # Catch specific network/SSL errors that might bubble up from get_boleto_link
+          rescue Timeout::Error, Errno::EINVAL, Errno::ECONNRESET, Errno::ECONNREFUSED, EOFError,
+                 Net::HTTPBadResponse, Net::HTTPHeaderSyntaxError, Net::ProtocolError, OpenSSL::SSL::SSLError => e
+            Rails.logger.error("\n[#{File.basename(__FILE__)}] Network/SSL error processing boleto for client ID #{client_record.id} (CPF/CNPJ #{clean_cpfcnpj}, NossoNumero #{client_record.identificacao_do_boleto_no_banco}): #{e.class} - #{e.message}\n#{e.backtrace.join("\n")}")
+            error_count += 1
+          rescue StandardError => e # Catch other errors from get_boleto_link or within process_single_boleto_record
+            log_prefix = "[#{File.basename(__FILE__)}] Error processing boleto for client ID #{client_record.id} (CPF/CNPJ #{clean_cpfcnpj}, NossoNumero #{client_record.identificacao_do_boleto_no_banco})"
+            Rails.logger.error("\n#{log_prefix}: #{e.class} - #{e.message}\n#{e.backtrace.join("\n")}")
+            error_count += 1
+            if e.message.match?(/Failed to get boleto link/i) || e.message.match?(/Boleto link missing/i)
+              Rails.logger.warn("\n#{log_prefix}: Boleto link fetch failed, possibly cancelled/paid or data mismatch with bank.")
+            end
+          end
+        end
+
+        Rails.logger.info("\n[#{File.basename(__FILE__)}] Finished processing for CPF/CNPJ #{clean_cpfcnpj}. Successfully processed: #{processed_count}, Errors: #{error_count}.")
+
+        end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        duration = (end_time - start_time).round(2)
+        execution_time_str = "#{duration} seconds"
+
+        if processed_boletos_list.any?
+          {
+            status: "client_slips",
+            tempo_de_execucao: execution_time_str,
+            quantidade_boletos: processed_boletos_list.size.to_s,
+            data: processed_boletos_list
+          }
+        else
+          # No boletos were successfully processed
+          if clients.all? { |c| c.identificacao_do_boleto_no_banco.blank? }
+            { status: "customer_noslips",
+              quantidade_boletos: "0",
+              tempo_de_execucao: execution_time_str,
+              msg: "Dados do boleto incompletos para o cliente (nenhum identificador de boleto encontrado).",
+              data: []
+            }
+          else
+            # Attempts were made (IDs existed), but all failed for other reasons.
+            { status: "client_noslips_error",
+              quantidade_boletoss: "0",
+              tempo_de_execucao: execution_time_str,
+              msg: "Não foi encontrado nenhum boleto ativo para o CPF/CNPJ informado. Verifique se os boletos estão cancelados, liquidados ou se os dados estão corretos.",
+              dados: []
+          }
+          end
+        end
+
+      # Global rescue blocks for issues not caught by more specific handlers (e.g., during setup before loop)
+      rescue ArgumentError => e
+        Rails.logger.error("\n[#{File.basename(__FILE__)}] Configuration error in #{self.name}##{__method__} for CPF/CNPJ #{cpf_cnpj_raw}: #{e.message}")
+        exec_time_str_rescue = defined?(start_time) ? "#{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time).round(2)} seconds" : "N/A"
+        { status: "error_configuration", msg: "Erro de configuração interna. Contate o suporte.", tempo_de_execucao: exec_time_str_rescue }
+      rescue StandardError => e
+        Rails.logger.error("\n[#{File.basename(__FILE__)}] Unexpected global error in #{self.name}##{__method__} for CPF/CNPJ #{cpf_cnpj_raw}: #{e.message}\n#{e.backtrace.join("\n")}")
+        exec_time_str_rescue = defined?(start_time) ? "#{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time).round(2)} seconds" : "N/A"
+        { status: "error_unknown", msg: "Ocorreu um erro inesperado. Contate o suporte.", tempo_de_execucao: exec_time_str_rescue }
       end
 
       private
 
-      def self.clean_cpf_cnpj(cpf_cnpj)
-        cpf_cnpj.gsub(/[^\d]/, "")
+      def self.process_single_boleto_record(client_record, token, subsidiary_key, credentials, cpf_cnpj_cleaned_for_api)
+        identificacao_boleto = client_record.identificacao_do_boleto_no_banco
+        conta_movimento = client_record.conta_movimento_beneficiario
+        raw_vencimento_string = client_record.data_de_vencimento_do_boleto
+
+        begin
+          parsed_vencimento_date = Date.strptime(raw_vencimento_string, "%d%m%y")
+        rescue ArgumentError => e
+          # Re-raise to be caught by the per-boleto error handler in the main loop
+          raise ArgumentError, "Data de vencimento '#{raw_vencimento_string}' inválida: #{e.message}"
+        end
+
+        boleto_response = get_boleto_link(
+          token,
+          subsidiary_key,
+          credentials[:client_id], # app_key
+          credentials[:pfx_path],
+          credentials[:pfx_password],
+          conta_movimento,
+          identificacao_boleto,
+          cpf_cnpj_cleaned_for_api # This is the payer's document number for the API
+        ) # Raises errors on failure
+
+        santander_link = boleto_response["link"] # get_boleto_link now ensures this exists or raises
+
+        # Ensure filename uniqueness, especially if multiple boletos have same payer name and due date
+        pdf_filename = "#{client_record.nome_do_pagador.parameterize}_#{parsed_vencimento_date.strftime('%Y%m%d')}_#{identificacao_boleto}.pdf"
+
+        storage_service = ::Santander::BoletoStorageService.new(santander_link, pdf_filename)
+        storage_result = storage_service.call # Raises StorageError on failure
+
+        formatted_vencimento = parsed_vencimento_date.strftime("%d/%m/%Y")
+        formatted_valor = ActionController::Base.helpers.number_to_currency(
+          client_record.valor_nominal_do_boleto,
+          unit: "R$",
+          separator: ",",
+          delimiter: "."
+        )
+
+        {
+          nome_client: client_record.nome_do_pagador,
+          cpf_cnpj: format_cpf_cnpj_for_display(cpf_cnpj_cleaned_for_api), # Display formatted
+          vencimento: formatted_vencimento,
+          valor: formatted_valor,
+          nosso_numero: client_record.identificacao_do_boleto_no_banco,
+          boleto_url: storage_result[:active_storage_url]
+        }
       end
 
-      def self.get_boleto_link(token, subsidiary_key, app_key, pfx_path, pfx_password, conta_movimento, identificacao_boleto, cpf_cnpj)
+      def self.clean_cpf_cnpj(cpf_cnpj)
+        cpf_cnpj.to_s.gsub(/[^\d]/, "")
+      end
+
+      def self.format_cpf_cnpj_for_display(cleaned_cpf_cnpj)
+        return cleaned_cpf_cnpj if cleaned_cpf_cnpj.blank? # Handle blank case
+        if cleaned_cpf_cnpj.length == 11
+          cleaned_cpf_cnpj.gsub(/(\d{3})(\d{3})(\d{3})(\d{2})/, '\1.\2.\3-\4') # CPF
+        elsif cleaned_cpf_cnpj.length == 14
+          cleaned_cpf_cnpj.gsub(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '\1.\2.\3/\4-\5') # CNPJ
+        else
+          cleaned_cpf_cnpj # Return as is if not a standard length
+        end
+      end
+
+      def self.get_boleto_link(token, subsidiary_key, app_key, pfx_path, pfx_password, conta_movimento, identificacao_boleto, cpf_cnpj_cleaned_for_api_body)
         boleto_url_string = "#{HttpClientHelper.base_uri}/collection_bill_management/v2/bills/#{identificacao_boleto}.#{conta_movimento}/bank_slips"
-        Rails.logger.info("\n[#{File.basename(__FILE__)}] Requesting boleto from: #{boleto_url_string} for CPF/CNPJ: #{cpf_cnpj} using Net::HTTP\n")
+        log_prefix = "[#{File.basename(__FILE__)}] get_boleto_link (NossoNumero: #{identificacao_boleto}, PayerDoc: #{cpf_cnpj_cleaned_for_api_body})"
+        Rails.logger.info("\n#{log_prefix} Requesting from: #{boleto_url_string}")
 
         uri = URI.parse(boleto_url_string)
         http = Net::HTTP.new(uri.host, uri.port)
@@ -146,46 +257,55 @@ module Api
           http.cert = p12.certificate
           http.key = p12.key
         rescue OpenSSL::PKCS12::PKCS12Error => e
-          Rails.logger.error("\n[#{File.basename(__FILE__)}] Failed to load PKCS12 certificate for Net::HTTP (get_boleto_link): #{e.message}")
-          raise "Failed to load PKCS12 certificate for #{subsidiary_key} (get_boleto_link): #{e.message}"
+          Rails.logger.error("\n#{log_prefix} Failed to load PKCS12 certificate for Net::HTTP (subsidiary #{subsidiary_key}): #{e.message}")
+          raise StandardError, "Falha ao carregar certificado PKCS12 (subsidiary #{subsidiary_key}): #{e.message}" # Re-raise as StandardError to be caught by caller
+        rescue Errno::ENOENT => e # PFX file not found
+           Rails.logger.error("\n#{log_prefix} PFX file not found at path '#{pfx_path}' for subsidiary #{subsidiary_key}: #{e.message}")
+           raise StandardError, "Arquivo PFX não encontrado para subsidiary #{subsidiary_key}: #{e.message}"
         end
 
-        # http.verify_mode = OpenSSL::SSL::VERIFY_NONE # TODO: Review for production
-        http.verify_mode = OpenSSL::SSL::VERIFY_PEER # TODO: Review for production
+        http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+        http.set_debug_output($stdout) if ENV["NET_HTTP_DEBUG"] == "true"
 
-        http.set_debug_output($stdout) if ENV["NET_HTTP_DEBUG"] == "true" || false
-
+        request_body = { payerDocumentNumber: cpf_cnpj_cleaned_for_api_body }.to_json
         request = Net::HTTP::Post.new(uri.request_uri)
-        request.body = { payerDocumentNumber: clean_cpf_cnpj(cpf_cnpj) }.to_json
+        request.body = request_body
         request["Authorization"] = "Bearer #{token}"
         request["X-Application-Key"] = app_key
         request["Content-Type"] = "application/json"
-        request["Accept"] = "application/json" # Good practice to set Accept header
+        request["Accept"] = "application/json"
 
+        response_body_for_error_logging = ""
         begin
-          Rails.logger.info("\n[#{File.basename(__FILE__)}] Sending Net::HTTP POST request for boleto to #{uri.host}#{uri.path}")
+          Rails.logger.info("\n#{log_prefix} Sending Net::HTTP POST request to #{uri.host}#{uri.path} with body: #{request_body}")
           response = http.request(request)
+          response_body_for_error_logging = response.body # Store for potential error logging
 
-          Rails.logger.info("\n[#{File.basename(__FILE__)}] Net::HTTP Boleto response code: #{response.code}")
+          Rails.logger.info("\n#{log_prefix} Net::HTTP Boleto response code: #{response.code}")
 
           unless response.is_a?(Net::HTTPSuccess)
-            error_message = "Failed to get boleto link (Net::HTTP): #{response.code} - #{response.message}. Body: #{response.body}"
-            Rails.logger.error("\n[#{File.basename(__FILE__)}] #{error_message}")
-            response.each_header { |k, v| Rails.logger.error("\n[#{File.basename(__FILE__)}] Boleto Response Header: #{k}: #{v}") }
-            raise StandardError, error_message # This will be caught by the main rescue block
+            error_message = "Failed to get boleto link (Net::HTTP): #{response.code} - #{response.message}. Body: #{response_body_for_error_logging}"
+            Rails.logger.error("\n#{log_prefix} #{error_message}")
+            response.each_header { |k, v| Rails.logger.error("\n#{log_prefix} Response Header: #{k}: #{v}") }
+            raise StandardError, error_message # Caught by process_single_boleto_record's error handling
           end
 
-          JSON.parse(response.body)
+          parsed_response = JSON.parse(response.body)
+          unless parsed_response.key?("link") && parsed_response["link"].present?
+            error_message = "Boleto link missing or empty in successful response from Santander. Body: #{response.body}"
+            Rails.logger.error("\n#{log_prefix} #{error_message}")
+            raise StandardError, error_message # Treat as an error
+          end
+          parsed_response
 
         rescue JSON::ParserError => e
-          error_message = "Failed to parse Santander boleto response (Net::HTTP). Body: #{response&.body}. Error: #{e.message}"
-          Rails.logger.error("\n[#{File.basename(__FILE__)}] #{error_message}")
-          raise StandardError, error_message # Re-raise to be caught by the main rescue block
-        # Specific network/SSL errors are already handled in the main get_cobrancas method
-        # but re-raising here allows them to be caught there with more context if needed.
-        # Or, you could handle them here and return a specific error structure.
+          error_message = "Failed to parse Santander boleto response (Net::HTTP). Body: #{response_body_for_error_logging}. Error: #{e.message}"
+          Rails.logger.error("\n#{log_prefix} #{error_message}")
+          raise StandardError, error_message # Re-raise to be caught by caller
+        # Network/SSL errors specific to this Net::HTTP call will bubble up.
+        # Timeout::Error, Errno::*, OpenSSL::SSL::SSLError etc.
         ensure
-            http.finish if http.started?
+          http.finish if http && http.started?
         end
       end
     end
