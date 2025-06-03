@@ -135,7 +135,7 @@ module Api
             error_count += 1
           rescue StandardError => e # Catch other errors from get_boleto_link or within process_single_boleto_record
             log_prefix = "[#{File.basename(__FILE__)}] Errorxyz processing boleto for client ID #{client_record.id} (CPF/CNPJ #{clean_cpfcnpj}, NossoNumero #{client_record.identificacao_do_boleto_no_banco})"
-            # Rails.logger.error("\n#{log_prefix}: #{e.class} - #{e.message}\n#{e.backtrace.join("\n")}")
+            Rails.logger.warn("\n#{log_prefix}")
             error_count += 1
             if e.message.match?(/Failed to get boleto link/i) || e.message.match?(/Boleto link missing/i)
               Rails.logger.warn("\n#{log_prefix}: Boleto link fetch failed, possibly cancelled/paid or data mismatch with bank.")
@@ -214,7 +214,7 @@ module Api
 
         santander_link = boleto_response["link"] # get_boleto_link now ensures this exists or raises
 
-        # Ensure filename uniqueness, especially if multiple boletos have same payer name and due date
+        # Ensure filename uniqueness, especially if multip le boletos have same payer name and due date
         pdf_filename = "#{client_record.nome_do_pagador.parameterize}_#{parsed_vencimento_date.strftime('%Y%m%d')}_#{identificacao_boleto}.pdf"
 
         storage_service = ::Santander::BoletoStorageService.new(santander_link, pdf_filename)

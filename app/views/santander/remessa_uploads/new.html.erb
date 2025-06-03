@@ -45,16 +45,56 @@
         </div>
       <% end %>
     </div>
+    <!-- Consultar Boletos Card -->
+    <div class="w-full md:w-80 h-auto p-6 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700 flex flex-col justify-between">
+      <div>
+        <h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Consultar boletos</h5>
+        <p class="mb-3 font-normal text-gray-700 dark:text-gray-400">Consulte boletos por CPF/CNPJ e data de vencimento</p>
+      </div>
+      <%= form_tag "#", method: :get, class: "space-y-4", 
+           data: { controller: "form-submission", action: "submit->form-submission#submit", 
+                  form_submission_id: "consulta-form" } do %>
+        <div class="mb-4">
+          <label for="cpf_cnpj" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">CPF/CNPJ</label>
+          <input type="text" id="cpf_cnpj" name="cpf_cnpj" 
+                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+                 placeholder="números e traços são aceitos" required>
+        </div>
+        <div class="mb-4">
+          <div class="flex items-center">
+            <label for="vencimento" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Vencimento</label>
+            <div class="relative ml-1 group">
+              <button type="button" class="text-gray-400 hover:text-gray-500 focus:outline-none">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                </svg>
+              </button>
+              <div class="absolute left-0 bottom-full mb-2 w-64 bg-gray-800 text-white text-xs rounded p-2 hidden group-hover:block z-10">
+                Vencimento não é obrigatório. Caso não informe vencimento, será buscado boletos no mês corrente.
+                <div class="absolute left-0 top-full w-3 h-3 -mt-1 transform rotate-45 bg-gray-800"></div>
+              </div>
+            </div>
+          </div>
+          <input type="text" id="vencimento" name="vencimento" 
+                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+                 placeholder="Digite no formato MMAA ex: 0325">
+        </div>
+        <%= button_tag type: 'submit',
+        class: "w-full inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-center text-white bg-[#2965f6] rounded-lg hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:hover:bg-blue-600 dark:focus:ring-blue-800",
+        data: { form_submission_target: "submitButton" } do %>
+          <span data-form-submission-target="buttonText">Buscar boleto(s)</span>
+          <span data-form-submission-target="spinner" class="hidden ml-2 inline-block animate-spin h-4 w-4 border-2 border-t-transparent border-white rounded-full" style="display: none;"></span>
+        <% end %>
+      <% end %>
+    </div>
   </div>
   <div class="flex justify-center mt-8 space-x-4">
     <%= link_to "Voltar", :back, class: "px-4 py-2 text-sm font-medium text-center text-white bg-[#2965f6] rounded-lg hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:hover:bg-blue-600 dark:focus:ring-blue-800" %>
     <%= button_to "Sair", destroy_session_path, method: :delete, class: "px-4 py-2 text-sm font-medium text-center text-white bg-red-600 rounded-lg hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300" %>
   </div>
 </div>
-
 <!-- Render the success modal if needed -->
 <%= render partial: 'success_modal' if @show_success_modal %>
-
 <script>
   // Function to set up the file input functionality
   function setupFileInput(bank) {
