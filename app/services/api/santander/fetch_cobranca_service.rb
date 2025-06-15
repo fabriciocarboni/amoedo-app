@@ -12,179 +12,149 @@ module Api
       require "date"
       require_dependency "santander/boleto_storage_service"
 
-      # Directory to store downloaded boletos (Potentially used by BoletoStorageService)
       BOLETOS_DIR = Rails.root.join("storage", "boletos")
 
-      def self.get_cobrancas(cpf_cnpj_raw, vencimento = nil)
-        start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) # Record start time
+      def self.get_single_cobranca(cpf_cnpj_raw, nosso_numero)
+        start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
-        # Use o vencimento informado ou o mês atual como padrão
-        month_year = vencimento.present? ? vencimento : Time.current.strftime("%m%y")
-
-        if cpf_cnpj_raw.blank?
-          # Using ArgumentError for programmer error (blank input not expected path)
-          raise ArgumentError, "CPF/CNPJ cannot be blank"
+        if cpf_cnpj_raw.blank? || nosso_numero.blank?
+          raise ArgumentError, "CPF/CNPJ e Nosso Número são obrigatórios"
         end
 
         clean_cpfcnpj = clean_cpf_cnpj(cpf_cnpj_raw)
 
-        # Query base
-        query = RemessaSantanderRegistro.where(numero_de_inscricao_do_pagador: clean_cpfcnpj)
+        # Find specific boleto record
+        client_record = RemessaSantanderRegistro
+          .where(numero_de_inscricao_do_pagador: clean_cpfcnpj)
+          .where(identificacao_do_boleto_no_banco: nosso_numero.to_i)
+          .first
 
-        # Adiciona a condição de vencimento
-        query = query.where("SUBSTRING(data_de_vencimento_do_boleto, 3, 4) = ?", month_year)
-
-        clients = query
-
-        unless clients.exists?
+        unless client_record
           end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           duration = (end_time - start_time).round(2)
           return {
-            status: "customer_notfound",
-            msg: "Cliente não encontrado com o CPF/CNPJ informado.",
-            tempo_de_execucao: "#{duration} seconds"
+            status: "boleto_notfound",
+            tempo_de_execucao: "#{duration} seconds",
+            msg: "Boleto não encontrado para o CPF/CNPJ e Nosso Número informados."
           }
         end
 
-        client_for_beneficiary_info = clients.find { |c| c.numero_de_inscricao_do_beneficiario.present? }
-
-        unless client_for_beneficiary_info
-          log_msg = "[#{File.basename(__FILE__)}] No client record found with 'numero_de_inscricao_do_beneficiario' for CPF/CNPJ #{clean_cpfcnpj}. Client IDs: #{clients.map(&:id).join(', ')}"
-          Rails.logger.warn("\n#{log_msg}")
+        # Get beneficiary info for API credentials
+        unless client_record.numero_de_inscricao_do_beneficiario.present?
           end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           duration = (end_time - start_time).round(2)
           return {
             status: "error_configuration",
-            msg: "Dados de configuração do beneficiário ausentes para este cliente.",
-            tempo_de_execucao: "#{duration} seconds"
+            tempo_de_execucao: "#{duration} seconds",
+            msg: "Dados de configuração do beneficiário ausentes para este boleto."
           }
         end
-        inscricao_beneficiario = client_for_beneficiary_info.numero_de_inscricao_do_beneficiario
 
+        inscricao_beneficiario = client_record.numero_de_inscricao_do_beneficiario
         subsidiary_key = HttpClientHelper.determine_subsidiary_key(inscricao_beneficiario)
-        credentials = HttpClientHelper.client_credentials_for(subsidiary_key) # Can raise ArgumentError
-        HttpClientHelper.log_credentials_status(subsidiary_key, credentials) # Assumes it handles nil credentials gracefully if applicable
+        credentials = HttpClientHelper.client_credentials_for(subsidiary_key)
 
+        # Get authentication token
         token = nil
         begin
           token = AuthService.fetch_token(subsidiary_key)
-          Rails.logger.info("\n[#{File.basename(__FILE__)}] ########### Token fetched successfully for subsidiary #{subsidiary_key} (CPF/CNPJ #{clean_cpfcnpj})")
-        rescue ArgumentError => e # Configuration errors from AuthService or HttpClientHelper
-          Rails.logger.error("\n[#{File.basename(__FILE__)}] Configuration error fetching token for subsidiary #{subsidiary_key} (CPF/CNPJ #{clean_cpfcnpj}): #{e.message}")
+          Rails.logger.info("\n[#{File.basename(__FILE__)}] Token fetched successfully for subsidiary #{subsidiary_key}")
+        rescue ArgumentError => e
+          Rails.logger.error("\n[#{File.basename(__FILE__)}] Configuration error: #{e.message}")
           end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           duration = (end_time - start_time).round(2)
           return {
             status: "error_configuration",
-            msg: "Erro de configuração interna ao obter token. Contate o suporte.",
-            tempo_de_execucao: "#{duration} seconds" # Add here too
+            msg: "Erro de configuração interna ao obter token.",
+            tempo_de_execucao: "#{duration} seconds"
           }
         rescue Timeout::Error, Errno::EINVAL, Errno::ECONNRESET, Errno::ECONNREFUSED, EOFError,
                Net::HTTPBadResponse, Net::HTTPHeaderSyntaxError, Net::ProtocolError, OpenSSL::SSL::SSLError => e
-          Rails.logger.error("\n[#{File.basename(__FILE__)}] Network/SSL error fetching token for subsidiary #{subsidiary_key} (CPF/CNPJ #{clean_cpfcnpj}): #{e.class} - #{e.message}\n#{e.backtrace.join("\n")}")
+          Rails.logger.error("\n[#{File.basename(__FILE__)}] Network/SSL error: #{e.class} - #{e.message}")
           end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           duration = (end_time - start_time).round(2)
           return {
             status: "error_communication",
-            msg: "Erro de comunicação com o banco ao obter token. Tente novamente mais tarde.",
+            msg: "Erro de comunicação com o banco.",
             tempo_de_execucao: "#{duration} seconds"
           }
         rescue StandardError => e
-          Rails.logger.error("\n[#{File.basename(__FILE__)}] Unexpected error fetching token for subsidiary #{subsidiary_key} (CPF/CNPJ #{clean_cpfcnpj}): #{e.message}\n#{e.backtrace.join("\n")}")
+          Rails.logger.error("\n[#{File.basename(__FILE__)}] Unexpected error: #{e.message}")
           end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           duration = (end_time - start_time).round(2)
           return {
             status: "error_unknown",
-            msg: "Erro desconhecido ao obter token. Contate o suporte.",
-            tempo_de_execucao: "#{duration} seconds" # Add here too
+            msg: "Erro desconhecido ao obter token.",
+            tempo_de_execucao: "#{duration} seconds"
           }
         end
 
-        processed_boletos_list = []
-        processed_count = 0
-        error_count = 0
+        # Process the single boleto
+        begin
+          boleto_data = process_single_boleto_record(
+            client_record,
+            token,
+            subsidiary_key,
+            credentials,
+            clean_cpfcnpj
+          )
 
-        clients.each_with_index do |client_record, index|
-          Rails.logger.info("\n[#{File.basename(__FILE__)}] Processing boleto record ##{index + 1}/#{clients.size} for client ID #{client_record.id}, CPF/CNPJ #{clean_cpfcnpj}")
+          end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          duration = (end_time - start_time).round(2)
 
-          unless client_record.identificacao_do_boleto_no_banco.present?
-            Rails.logger.info("\n[#{File.basename(__FILE__)}] Client ID #{client_record.id} (CPF/CNPJ #{clean_cpfcnpj}) has no 'identificacao_do_boleto_no_banco'. Skipping.")
-            error_count += 1
-            next
-          end
-
-          begin
-            boleto_data = process_single_boleto_record(
-              client_record,
-              token,
-              subsidiary_key,
-              credentials,
-              clean_cpfcnpj # Pass the cleaned CPF/CNPJ for API body
-            )
-            processed_boletos_list << boleto_data
-            processed_count += 1
-          rescue ArgumentError => e # Date parsing or other argument errors within process_single_boleto_record
-            Rails.logger.error("\n[#{File.basename(__FILE__)}] Argument error processing boleto for client ID #{client_record.id} (CPF/CNPJ #{clean_cpfcnpj}, NossoNumero #{client_record.identificacao_do_boleto_no_banco}): #{e.message}")
-            error_count += 1
-          rescue ::Santander::BoletoStorageService::StorageError => e # Custom error from storage service
-            Rails.logger.error("\n[#{File.basename(__FILE__)}] Storage error for client ID #{client_record.id} (CPF/CNPJ #{clean_cpfcnpj}, NossoNumero #{client_record.identificacao_do_boleto_no_banco}): #{e.message}")
-            error_count += 1
-          # Catch specific network/SSL errors that might bubble up from get_boleto_link
-          rescue Timeout::Error, Errno::EINVAL, Errno::ECONNRESET, Errno::ECONNREFUSED, EOFError,
-                 Net::HTTPBadResponse, Net::HTTPHeaderSyntaxError, Net::ProtocolError, OpenSSL::SSL::SSLError => e
-            Rails.logger.error("\n[#{File.basename(__FILE__)}] Network/SSL error processing boleto for client ID #{client_record.id} (CPF/CNPJ #{clean_cpfcnpj}, NossoNumero #{client_record.identificacao_do_boleto_no_banco}): #{e.class} - #{e.message}\n#{e.backtrace.join("\n")}")
-            error_count += 1
-          rescue StandardError => e # Catch other errors from get_boleto_link or within process_single_boleto_record
-            log_prefix = "[#{File.basename(__FILE__)}] Errorxyz processing boleto for client ID #{client_record.id} (CPF/CNPJ #{clean_cpfcnpj}, NossoNumero #{client_record.identificacao_do_boleto_no_banco})"
-            Rails.logger.warn("\n#{log_prefix}")
-            error_count += 1
-            if e.message.match?(/Failed to get boleto link/i) || e.message.match?(/Boleto link missing/i)
-              Rails.logger.warn("\n#{log_prefix}: Boleto link fetch failed, possibly cancelled/paid or data mismatch with bank.")
-            end
-          end
-        end
-
-        Rails.logger.info("\n[#{File.basename(__FILE__)}] Finished processing for CPF/CNPJ #{clean_cpfcnpj}. Successfully processed: #{processed_count}, Errors: #{error_count}.")
-
-        end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        duration = (end_time - start_time).round(2)
-        execution_time_str = "#{duration} seconds"
-
-        if processed_boletos_list.any?
           {
-            status: "client_slips",
-            tempo_de_execucao: execution_time_str,
-            quantidade_boletos: processed_boletos_list.size.to_s,
-            data: processed_boletos_list
+            status: "boleto_processed",
+            tempo_de_execucao: "#{duration} seconds",
+            data: boleto_data
           }
-        else
-          # No boletos were successfully processed
-          if clients.all? { |c| c.identificacao_do_boleto_no_banco.blank? }
-            { status: "customer_noslips_error",
-              quantidade_boletos: "0",
-              tempo_de_execucao: execution_time_str,
-              msg: "Dados do boleto incompletos para o cliente (nenhum identificador de boleto encontrado).",
-              data: []
-            }
-          else
-            # Attempts were made (IDs existed), but all failed for other reasons.
-            { status: "client_noslips",
-              quantidade_boletoss: "0",
-              tempo_de_execucao: execution_time_str,
-              msg: "Não foi encontrado nenhum boleto para o CPF/CNPJ informado. Os boletos podem estar cancelados ou liquidados.",
-              dados: []
+
+        rescue ArgumentError => e
+          Rails.logger.error("\n[#{File.basename(__FILE__)}] Argument error: #{e.message}")
+          end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          duration = (end_time - start_time).round(2)
+          {
+            status: "error_data",
+            msg: "Erro nos dados do boleto: #{e.message}",
+            tempo_de_execucao: "#{duration} seconds"
           }
-          end
+        rescue ::Santander::BoletoStorageService::StorageError => e
+          Rails.logger.error("\n[#{File.basename(__FILE__)}] Storage error: #{e.message}")
+          end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          duration = (end_time - start_time).round(2)
+          {
+            status: "error_storage",
+            msg: "Erro ao armazenar boleto: #{e.message}",
+            tempo_de_execucao: "#{duration} seconds"
+          }
+        rescue Timeout::Error, Errno::EINVAL, Errno::ECONNRESET, Errno::ECONNREFUSED, EOFError,
+               Net::HTTPBadResponse, Net::HTTPHeaderSyntaxError, Net::ProtocolError, OpenSSL::SSL::SSLError => e
+          Rails.logger.error("\n[#{File.basename(__FILE__)}] Network/SSL error processing boleto: #{e.class} - #{e.message}")
+          end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          duration = (end_time - start_time).round(2)
+          {
+            status: "error_communication",
+            msg: "Erro de comunicação com o banco ao processar boleto.",
+            tempo_de_execucao: "#{duration} seconds"
+          }
+        rescue StandardError => e
+          Rails.logger.error("\n[#{File.basename(__FILE__)}] Unexpected error processing boleto: #{e.message}")
+          end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          duration = (end_time - start_time).round(2)
+          {
+            status: "error_unknown",
+            msg: "Erro desconhecido ao processar boleto.",
+            tempo_de_execucao: "#{duration} seconds"
+          }
         end
 
-      # Global rescue blocks for issues not caught by more specific handlers (e.g., during setup before loop)
       rescue ArgumentError => e
-        Rails.logger.error("\n[#{File.basename(__FILE__)}] Configuration error in #{self.name}##{__method__} for CPF/CNPJ #{cpf_cnpj_raw}: #{e.message}")
-        exec_time_str_rescue = defined?(start_time) ? "#{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time).round(2)} seconds" : "N/A"
-        { status: "error_configuration", msg: "Erro de configuração interna. Contate o suporte.", tempo_de_execucao: exec_time_str_rescue }
+        Rails.logger.error("\n[#{File.basename(__FILE__)}] Configuration error: #{e.message}")
+        exec_time_str = defined?(start_time) ? "#{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time).round(2)} seconds" : "N/A"
+        { status: "error_configuration", msg: "Erro de configuração interna.", tempo_de_execucao: exec_time_str }
       rescue StandardError => e
-        Rails.logger.error("\n[#{File.basename(__FILE__)}] Unexpected global error in #{self.name}##{__method__} for CPF/CNPJ #{cpf_cnpj_raw}: #{e.message}\n#{e.backtrace.join("\n")}")
-        exec_time_str_rescue = defined?(start_time) ? "#{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time).round(2)} seconds" : "N/A"
-        { status: "error_unknown", msg: "Ocorreu um erro inesperado. Contate o suporte.", tempo_de_execucao: exec_time_str_rescue }
+        Rails.logger.error("\n[#{File.basename(__FILE__)}] Unexpected global error: #{e.message}")
+        exec_time_str = defined?(start_time) ? "#{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time).round(2)} seconds" : "N/A"
+        { status: "error_unknown", msg: "Ocorreu um erro inesperado.", tempo_de_execucao: exec_time_str }
       end
 
       private
