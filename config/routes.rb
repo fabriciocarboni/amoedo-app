@@ -13,6 +13,7 @@ Rails.application.routes.draw do
       namespace :v1 do
         get "asaas/cobrancas/listar_cobrancas_cliente", to: "asaas_cobrancas#listar_cobrancas_cliente"
         get "santander/cobrancas/listar_cobrancas_cliente", to: "santander_cobrancas#listar_cobrancas_cliente"
+        get "santander/cobrancas/listar_vencimentos", to: "santander_vencimentos#listar_vencimentos"
       end
   end
 
