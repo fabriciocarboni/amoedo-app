@@ -103,11 +103,25 @@ module Api
           duration = (end_time - start_time).round(2)
 
           {
-            status: "boleto_processed",
+            status: "boleto_found",
             tempo_de_execucao: "#{duration} seconds",
             data: boleto_data
           }
 
+        rescue BoletoAlreadyPaidError => e
+          Rails.logger.info("\n[#{File.basename(__FILE__)}] Boleto already paid: #{e.message}")
+          end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          duration = (end_time - start_time).round(2)
+          {
+            status: "boleto_notfound",
+            tempo_de_execucao: "#{duration} seconds",
+            message: "Título Pago",
+            data: {
+              cpf_cnpj: format_cpf_cnpj_for_display(clean_cpfcnpj),
+              nome_client: client_record.nome_do_pagador,
+              nosso_numero: client_record.identificacao_do_boleto_no_banco
+            }
+          }
         rescue ArgumentError => e
           Rails.logger.error("\n[#{File.basename(__FILE__)}] Argument error: #{e.message}")
           end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -159,6 +173,9 @@ module Api
 
       private
 
+      # Custom exception for paid boletos
+      class BoletoAlreadyPaidError < StandardError; end
+
       def self.process_single_boleto_record(client_record, token, subsidiary_key, credentials, cpf_cnpj_cleaned_for_api)
         identificacao_boleto = client_record.identificacao_do_boleto_no_banco
         conta_movimento = client_record.conta_movimento_beneficiario
@@ -184,7 +201,7 @@ module Api
 
         santander_link = boleto_response["link"] # get_boleto_link now ensures this exists or raises
 
-        # Ensure filename uniqueness, especially if multip le boletos have same payer name and due date
+        # Ensure filename uniqueness, especially if multiple boletos have same payer name and due date
         pdf_filename = "#{client_record.nome_do_pagador.parameterize}_#{parsed_vencimento_date.strftime('%Y%m%d')}_#{identificacao_boleto}.pdf"
 
         storage_service = ::Santander::BoletoStorageService.new(santander_link, pdf_filename)
@@ -226,7 +243,6 @@ module Api
       def self.get_boleto_link(token, subsidiary_key, app_key, pfx_path, pfx_password, conta_movimento, identificacao_boleto, cpf_cnpj_cleaned_for_api_body)
         boleto_url_string = "#{HttpClientHelper.base_uri}/collection_bill_management/v2/bills/#{identificacao_boleto}.#{conta_movimento}/bank_slips"
         log_prefix = "[#{File.basename(__FILE__)}] get_boleto_link (NossoNumero: #{identificacao_boleto}, PayerDoc: #{cpf_cnpj_cleaned_for_api_body})"
-        # Rails.logger.info("\n#{log_prefix} Requesting from: #{boleto_url_string}")
 
         uri = URI.parse(boleto_url_string)
         http = Net::HTTP.new(uri.host, uri.port)
@@ -238,7 +254,7 @@ module Api
           http.key = p12.key
         rescue OpenSSL::PKCS12::PKCS12Error => e
           Rails.logger.error("\n#{log_prefix} Failed to load PKCS12 certificate for Net::HTTP (subsidiary #{subsidiary_key}): #{e.message}")
-          raise StandardError, "Falha ao carregar certificado PKCS12 (subsidiary #{subsidiary_key}): #{e.message}" # Re-raise as StandardError to be caught by caller
+          raise StandardError, "Falha ao carregar certificado PKCS12 (subsidiary #{subsidiary_key}): #{e.message}"
         rescue Errno::ENOENT => e # PFX file not found
            Rails.logger.error("\n#{log_prefix} PFX file not found at path '#{pfx_path}' for subsidiary #{subsidiary_key}: #{e.message}")
            raise StandardError, "Arquivo PFX não encontrado para subsidiary #{subsidiary_key}: #{e.message}"
@@ -257,31 +273,41 @@ module Api
 
         response_body_for_error_logging = ""
         begin
-          # Rails.logger.info("\n#{log_prefix} Sending Net::HTTP POST request to #{uri.host}#{uri.path} with body: #{request_body}")
           response = http.request(request)
-          response_body_for_error_logging = response.body # Store for potential error logging
-
-          # Rails.logger.info("\n#{log_prefix} Net::HTTP Boleto response code: #{response.code}")
+          response_body_for_error_logging = response.body
 
           unless response.is_a?(Net::HTTPSuccess)
+            # Parse the error response to check for specific error codes
+            if response.code == "400"
+              begin
+                error_data = JSON.parse(response.body)
+                if error_data.dig("_errors")&.any? { |error| error["_message"] == "Título Pago" }
+                  Rails.logger.info("\n#{log_prefix} Boleto already paid - raising BoletoAlreadyPaidError")
+                  raise BoletoAlreadyPaidError, "Título Pago"
+                end
+              rescue JSON::ParserError
+                # If we can't parse the JSON, fall through to the general error handling
+              end
+            end
+
             error_message = "Failed to get boleto link (Net::HTTP): #{response.code} - #{response.message}. Body: #{response_body_for_error_logging}"
             Rails.logger.error("\n#{log_prefix} #{error_message}")
             response.each_header { |k, v| Rails.logger.error("\n#{log_prefix} Response Header: #{k}: #{v}") }
-            raise StandardError, error_message # Caught by process_single_boleto_record's error handling
+            raise StandardError, error_message
           end
 
           parsed_response = JSON.parse(response.body)
           unless parsed_response.key?("link") && parsed_response["link"].present?
             error_message = "Boleto link missing or empty in successful response from Santander. Body: #{response.body}"
             Rails.logger.error("\n#{log_prefix} #{error_message}")
-            raise StandardError, error_message # Treat as an error
+            raise StandardError, error_message
           end
           parsed_response
 
         rescue JSON::ParserError => e
           error_message = "Failed to parse Santander boleto response (Net::HTTP). Body: #{response_body_for_error_logging}. Error: #{e.message}"
           Rails.logger.error("\n#{log_prefix} #{error_message}")
-          raise StandardError, error_message # Re-raise to be caught by caller
+          raise StandardError, error_message
         ensure
           http.finish if http && http.started?
         end

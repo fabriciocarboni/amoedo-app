@@ -19,6 +19,7 @@ Rails.application.routes.draw do
 
   namespace :santander do
     resources :remessa_uploads, only: [ :new, :create ]
+    resources :boleto_searches, only: [ :create ]
   end
 
   namespace :bradesco do

@@ -6,9 +6,19 @@ export default class extends Controller {
 
     connect() {
         this.form = this.element
-        // Use a more specific event listener that's guaranteed to fire
-        document.addEventListener("turbo:submit-end", this.handleTurboSubmitEnd.bind(this))
-        document.addEventListener("turbo:load", this.resetOnPageLoad.bind(this))
+        // Store original button text
+        if (this.hasButtonTextTarget) {
+            this.originalButtonText = this.buttonTextTarget.textContent
+        }
+
+        // Check if this form uses Turbo
+        this.usesTurbo = this.form.getAttribute('data-turbo') !== 'false'
+
+        // Only add Turbo event listeners for Turbo-enabled forms
+        if (this.usesTurbo) {
+            this.turboSubmitEndHandler = this.handleTurboSubmitEnd.bind(this)
+            document.addEventListener("turbo:submit-end", this.turboSubmitEndHandler)
+        }
 
         // Make sure spinner is hidden on connect
         if (this.hasSpinnerTarget) {
@@ -18,8 +28,9 @@ export default class extends Controller {
     }
 
     disconnect() {
-        document.removeEventListener("turbo:submit-end", this.handleTurboSubmitEnd.bind(this))
-        document.removeEventListener("turbo:load", this.resetOnPageLoad.bind(this))
+        if (this.usesTurbo && this.turboSubmitEndHandler) {
+            document.removeEventListener("turbo:submit-end", this.turboSubmitEndHandler)
+        }
     }
 
     initialize() {
@@ -40,12 +51,20 @@ export default class extends Controller {
         this.submitButtonTarget.classList.add("bg-gray-300", "cursor-not-allowed")
 
         // Change button text
-        this.buttonTextTarget.textContent = "Processando..."
+        if (this.hasButtonTextTarget) {
+            this.buttonTextTarget.textContent = "Processando..."
+        }
 
         // Show spinner
         if (this.hasSpinnerTarget) {
             this.spinnerTarget.classList.remove("hidden")
             this.spinnerTarget.style.display = "inline-block"
+        }
+
+        // For non-Turbo forms, the page will redirect, so no need to reset
+        if (!this.usesTurbo) {
+            // Let the browser handle the form submission normally
+            return
         }
     }
 
@@ -55,22 +74,19 @@ export default class extends Controller {
         this.submitButtonTarget.disabled = false
 
         // Restore original appearance
-        this.submitButtonTarget.classList.remove("bg-gray-300", "cursor-not-allowed") // Fixed class name
+        this.submitButtonTarget.classList.remove("bg-gray-300", "cursor-not-allowed")
         this.submitButtonTarget.classList.add("bg-[#2965f6]", "hover:bg-blue-700")
 
-        // Restore button text
-        this.buttonTextTarget.textContent = "Upload e Processar"
+        // Restore original button text
+        if (this.hasButtonTextTarget && this.originalButtonText) {
+            this.buttonTextTarget.textContent = this.originalButtonText
+        }
 
         // Hide spinner
         if (this.hasSpinnerTarget) {
             this.spinnerTarget.classList.add("hidden")
             this.spinnerTarget.style.display = "none"
         }
-    }
-
-    resetOnPageLoad() {
-        // This ensures the button resets when the page loads after redirect
-        this.reset()
     }
 
     handleTurboSubmitEnd(event) {
