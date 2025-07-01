@@ -83,16 +83,18 @@ jobs:
           ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
           ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ github.sha }}
 
-    - name: Trigger Portainer Webhook
-      id: request
-      uses: tyrrrz/action-http-request@master
-      with:
-        url: https://zapi.portainer.buzzlabs.pt/api/webhooks/c94c4f19-c616-45f9-8557-f62d535932e8
-        method: POST
+#  commented out webhook because portaineris not recognizing the githubregistry inside de portainer.
 
-    - name: Print outputs
-      run: |
-        echo "Status: ${{ steps.request.outputs.status }}"
-        echo "Success: ${{ steps.request.outputs.success }}"
-        echo "Headers: ${{ steps.request.outputs.headers }}"
-        echo "Body: ${{ steps.request.outputs.body }}"
+    # - name: Trigger Portainer Webhook
+    #   id: request
+    #   uses: tyrrrz/action-http-request@master
+    #   with:
+    #     url: https://zapi.portainer.buzzlabs.pt/api/webhooks/c94c4f19-c616-45f9-8557-f62d535932e8
+    #     method: POST
+
+    # - name: Print outputs
+    #   run: |
+    #     echo "Status: ${{ steps.request.outputs.status }}"
+    #     echo "Success: ${{ steps.request.outputs.success }}"
+    #     echo "Headers: ${{ steps.request.outputs.headers }}"
+    #     echo "Body: ${{ steps.request.outputs.body }}"
