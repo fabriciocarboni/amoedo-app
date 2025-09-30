@@ -68,7 +68,7 @@ end
 
 gem "activerecord-import"
 gem "dotenv-rails", groups: [ :development, :test ]
-gem "mailgun-ruby", "~> 1.3"
+gem "mailgun-ruby", "~> 1.4"
 gem "httparty", "~> 0.23.1"
 gem "htmlbeautifier", "~> 1.4", ">= 1.4.3"
 gem "rufus-scheduler"
